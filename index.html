@@ -516,14 +516,9 @@
     }
     ctx.restore();
 
-    // ---- shadow: small, subtle break in the line right under the cube ----
-    const r=tile*1.05;
-    const fade=ctx.createRadialGradient(cxC, groundY, 0, cxC, groundY, r);
-    fade.addColorStop(0,   'rgba(0,0,0,1)');
-    fade.addColorStop(0.5, 'rgba(0,0,0,1)');
-    fade.addColorStop(1,   'rgba(0,0,0,0)');
-    ctx.fillStyle=fade;
-    ctx.beginPath(); ctx.arc(cxC, groundY, r, 0, Math.PI*2); ctx.fill();
+    // ---- shadow: hard-edged gap, a bit bigger than the cube (no soft fade) ----
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(cxC, groundY, c.size*0.72, 0, Math.PI*2); ctx.fill();
 
     // ---- faint after-image trail (matches the cube: filled when lit) ----
     for(let i=c.trail.length-1;i>=1;i--){
@@ -548,13 +543,13 @@
 
   function drawTimer(v){
     let txt=v.toFixed(2); if(txt==='-0.00') txt='0.00';
-    const fs=Math.min(W*0.085, H*0.19);
-    const topY=Math.max(6, Math.round(H*0.045));
-    // timer number — rounded system font with soft glow (as in the reference)
+    const fs=Math.min(W*0.095, H*0.21);
+    const topY=Math.max(6, Math.round(H*0.04));
+    // timer number — rounded system font, semi-bold with soft glow
     ctx.save();
     ctx.fillStyle='#fff';
-    ctx.shadowColor='rgba(255,255,255,.6)'; ctx.shadowBlur=Math.round(fs*0.28);
-    ctx.font='bold '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
+    ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=Math.round(fs*0.24);
+    ctx.font='600 '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
     ctx.textAlign='center'; ctx.textBaseline='top';
     ctx.fillText(txt, W/2, topY);
     ctx.restore();
