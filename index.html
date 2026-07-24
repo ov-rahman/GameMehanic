@@ -36,6 +36,23 @@
   /* progress rail */
   #rail{ position:fixed; top:0; left:0; height:3px; width:0; z-index:70; background:var(--acc); box-shadow:0 0 10px var(--acc); transition:width .15s linear; }
 
+  /* cursor glow (fine pointers only) */
+  #curglow{ position:fixed; z-index:-1; width:420px; height:420px; left:0; top:0; margin:-210px 0 0 -210px; pointer-events:none;
+    background:radial-gradient(circle, rgba(61,255,158,.10), transparent 60%); opacity:0; transition:opacity .3s; will-change:transform; }
+  @media (hover:hover) and (pointer:fine){ #curglow.on{ opacity:1; } }
+
+  /* side dots nav */
+  #dots{ position:fixed; right:16px; top:50%; transform:translateY(-50%); z-index:65; display:none; flex-direction:column; gap:12px; }
+  @media (min-width:820px){ #dots{ display:flex; } }
+  #dots button{ width:12px; height:12px; padding:0; border:2px solid var(--dim2); background:transparent; cursor:pointer; position:relative; transition:transform .12s, border-color .2s, background .2s; }
+  #dots button:hover{ transform:scale(1.35); border-color:#fff; }
+  #dots button.done{ background:var(--acc); border-color:var(--acc); box-shadow:0 0 8px var(--acc); }
+  #dots button.cur{ border-color:#fff; box-shadow:0 0 10px rgba(255,255,255,.5); transform:scale(1.35); }
+  #dots button.lock{ opacity:.4; cursor:not-allowed; }
+  #dots button .tt{ position:absolute; right:22px; top:50%; transform:translateY(-50%); white-space:nowrap; font-family:var(--pix); font-size:10px; letter-spacing:1px;
+    color:#ddd; background:#000; border:1px solid var(--line2); padding:4px 8px; opacity:0; pointer-events:none; transition:opacity .15s; }
+  #dots button:hover .tt{ opacity:1; }
+
   .wrap{ width:min(1080px,92vw); margin:0 auto; }
   h1,h2,h3,h4,.pix{ font-family:var(--pix); letter-spacing:1px; }
 
@@ -192,7 +209,9 @@
 
   /* lock veil */
   .lesson.locked .veil{ display:flex; }
-  .veil{ display:none; position:absolute; inset:0; z-index:5; background:rgba(0,0,0,.86); backdrop-filter:blur(3px);
+  .lesson.locked .wrap > :not(.veil){ filter:blur(9px); opacity:.5; transition:filter .4s, opacity .4s; }
+  .veil{ display:none; position:absolute; inset:0; z-index:5; background:rgba(0,0,0,.82);
+    -webkit-backdrop-filter:blur(11px); backdrop-filter:blur(11px);
     flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px; padding:20px; }
   .veil .lk{ font-size:40px; color:var(--dim); }
   .veil .vt{ font-family:var(--pix); font-size:14px; color:var(--dim); letter-spacing:1px; }
@@ -226,6 +245,8 @@
 <div id="grid"></div>
 <div id="scan"></div>
 <div id="rail"></div>
+<div id="curglow"></div>
+<nav id="dots" aria-label="навигация по урокам"></nav>
 
 <!-- ===== custom pixel icon set (no emoji) ===== -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -719,7 +740,7 @@ public class LedgeGrab : MonoBehaviour {
       navigator.clipboard.writeText(codeById[id]).then(()=>{ cp.textContent='СКОПИРОВАНО'; setTimeout(()=>cp.textContent='КОПИРОВАТЬ',1300); }).catch(()=>{});
       return;
     }
-    const t=e.target.closest('[data-test]'); if(t){ setDone(t.dataset.test); } // unlock next on attempt
+    const t=e.target.closest('[data-test]'); if(t){ setDone(t.dataset.test); saveScroll(); } // save spot + unlock next
   });
 
   /* ---------- reveal on scroll + progress rail ---------- */
@@ -746,6 +767,44 @@ public class LedgeGrab : MonoBehaviour {
         res.textContent=ms+' мс'+cmp; }
     });
   });
+
+  /* ---------- side dots navigation ---------- */
+  const dotsNav=document.getElementById('dots');
+  lessons.forEach((l,i)=>{
+    const b=document.createElement('button');
+    b.dataset.id=l.id;
+    b.innerHTML='<span class="tt">'+('0'+(i+1)).slice(-2)+' · '+l.title+'</span>';
+    b.addEventListener('click',()=>{ if(isUnlocked(l.id)){ const s=document.getElementById('l-'+l.id); if(s) s.scrollIntoView({behavior:'smooth',block:'start'}); } });
+    dotsNav.appendChild(b);
+  });
+  function refreshDots(){ Array.from(dotsNav.children).forEach(b=>{ b.classList.toggle('done',done(b.dataset.id)); b.classList.toggle('lock',!isUnlocked(b.dataset.id)); }); }
+  refreshDots();
+  const secObs=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ const id=e.target.dataset.id;
+    Array.from(dotsNav.children).forEach(b=>b.classList.toggle('cur', b.dataset.id===id)); } }),{rootMargin:'-45% 0px -45% 0px'});
+  document.querySelectorAll('.lesson').forEach(s=>secObs.observe(s));
+
+  /* ---------- resume scroll position ---------- */
+  const SK='gf_scroll'; let st;
+  function saveScroll(){ try{ localStorage.setItem(SK,String(Math.round(window.scrollY))); }catch(_){} }
+  addEventListener('scroll',()=>{ clearTimeout(st); st=setTimeout(saveScroll,140); },{passive:true});
+  addEventListener('pagehide',saveScroll);
+  addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') saveScroll(); });
+  (function restoreScroll(){
+    let y=0; try{ y=parseInt(localStorage.getItem(SK)||'0',10)||0; }catch(_){}
+    if(y>40){ const go=()=>window.scrollTo({top:y,behavior:'auto'}); go(); requestAnimationFrame(go); setTimeout(go,140); setTimeout(go,380); }
+  })();
+
+  /* ---------- hero parallax + cursor glow ---------- */
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const heroTitle=document.querySelector('.hero h1');
+  if(!reduce && heroTitle){
+    addEventListener('scroll',()=>{ const y=window.scrollY, vh=window.innerHeight;
+      if(y<vh){ heroTitle.style.transform='translateY('+(y*0.2)+'px)'; heroTitle.style.opacity=String(Math.max(0,1-y/(vh*0.85))); } },{passive:true});
+  }
+  const cg=document.getElementById('curglow');
+  if(!reduce && cg && matchMedia('(hover:hover) and (pointer:fine)').matches){
+    addEventListener('pointermove',e=>{ cg.classList.add('on'); cg.style.transform='translate('+e.clientX+'px,'+e.clientY+'px)'; },{passive:true});
+  }
 })();
 </script>
 </body>

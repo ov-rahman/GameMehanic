@@ -373,6 +373,7 @@
     cam={x:0,y:0}; shakeT=0; shakeMag=0; particles=[]; hitstop=0;
   }
 
+  let wasLandscape=null;
   function resize(){
     DPR=Math.min(window.devicePixelRatio||1,2.5);
     W=window.innerWidth; H=window.innerHeight;
@@ -381,10 +382,15 @@
     buf.width=Math.floor(pw*RS); buf.height=Math.floor(ph*RS);
     ctx.setTransform(DPR*RS,0,0,DPR*RS,0,0);
     vctx.setTransform(1,0,0,1,0,0);
-    buildLevel(true);
+    // On an orientation flip, rebuild the level from scratch so the cube is
+    // re-placed correctly (otherwise it gets clamped below the new ground).
+    const landscape=W>=H;
+    const flip=(wasLandscape!==null && wasLandscape!==landscape);
+    wasLandscape=landscape;
+    buildLevel(!flip);
   }
   window.addEventListener('resize',resize);
-  window.addEventListener('orientationchange',()=>setTimeout(resize,200));
+  window.addEventListener('orientationchange',()=>setTimeout(resize,220));
 
   /* ================= collision ================= */
   const overlap=(ax,ay,aw,ah,bx,by,bw,bh)=> ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by;
