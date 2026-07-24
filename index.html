@@ -488,8 +488,8 @@
 
     // ---- terrain: thin hairlines only ----
     ctx.save();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.lineCap='butt';
-    ctx.shadowColor='rgba(255,255,255,.5)'; ctx.shadowBlur=4;
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.6; ctx.lineCap='butt';
+    ctx.shadowColor='rgba(255,255,255,.7)'; ctx.shadowBlur=7;
     for(const t of tops){
       ctx.beginPath(); ctx.moveTo(t.x0, t.y+.5); ctx.lineTo(t.x1, t.y+.5); ctx.stroke();
     }
@@ -517,7 +517,7 @@
 
     // ---- cube (thin outline; solid white while pressed) ----
     ctx.save();
-    ctx.shadowColor='rgba(255,255,255,.85)'; ctx.shadowBlur=c.holding?14:6;
+    ctx.shadowColor='rgba(255,255,255,.85)'; ctx.shadowBlur=c.holding?16:8;
     const px=Math.round(c.x), py=Math.round(c.y);
     if(c.holding){ ctx.fillStyle='#fff'; ctx.fillRect(px, py, c.size, c.size); }
     else{ ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.strokeRect(px+.7, py+.7, c.size-1.4, c.size-1.4); }
@@ -562,13 +562,15 @@
   // blit the buffer to screen with a convex (bulging) screen effect
   function present(){
     const pw=canvas.width, ph=canvas.height;
+    vctx.setTransform(1,0,0,1,0,0);
+    vctx.imageSmoothingEnabled=true; vctx.imageSmoothingQuality='high';
     vctx.clearRect(0,0,pw,ph);
     vctx.fillStyle='#000'; vctx.fillRect(0,0,pw,ph);
     const cx=pw/2;
-    const bow  = ph*0.055;   // vertical bow: lines dip at the centre
-    const mag  = 0.07;       // extra magnification in the middle
-    const hcomp= 0.06;       // horizontal squeeze towards the edges
-    const sw=Math.max(2, Math.round(3*DPR));
+    const bow  = ph*0.035;   // vertical bow: lines dip at the centre (softer)
+    const mag  = 0.045;      // extra magnification in the middle
+    const hcomp= 0.03;       // horizontal squeeze towards the edges
+    const sw=Math.max(1, Math.round(1.5*DPR)); // thin slices -> smooth curve
     for(let x=0; x<pw; x+=sw){
       const w=Math.min(sw, pw-x);
       const cxs=x+w/2;
@@ -580,7 +582,7 @@
       const hc=1-hcomp*nx*nx;       // pull edges inward for a domed look
       const dw=w*hc;
       const dx=cx+(cxs-cx)*hc - dw/2;
-      vctx.drawImage(buf, x,0,w,ph, dx, dy, dw+0.6, dh);
+      vctx.drawImage(buf, x,0,w,ph, dx-0.6, dy, dw+1.2, dh);
     }
   }
 
