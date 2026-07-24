@@ -197,23 +197,23 @@
   </div>
 
   <div class="settings-box">
-    <div class="srow">
+    <div class="srow" id="rowJump">
       <div class="lab"><span>УДЕРЖАНИЕ&nbsp;ПРЫЖКА</span><span class="val" id="vJump">0.28</span></div>
       <input type="range" id="sJump" min="0.06" max="0.50" step="0.01">
     </div>
-    <div class="srow">
+    <div class="srow" id="rowPhysics">
       <div class="lab"><span>ФИЗИКА&nbsp;ПРЫЖКА</span><span class="val" id="vPhysics">ВЫКЛ</span></div>
       <button class="btn toggleBtn" id="tPhysics">ВКЛЮЧИТЬ</button>
     </div>
-    <div class="srow">
+    <div class="srow" id="rowCoyote">
       <div class="lab"><span>ВРЕМЯ&nbsp;КОЙОТА</span><span class="val" id="vCoyote">0.12</span></div>
       <input type="range" id="sCoyote" min="0" max="0.40" step="0.01">
     </div>
-    <div class="srow">
+    <div class="srow" id="rowBuffer">
       <div class="lab"><span>БУФЕР&nbsp;ВВОДА</span><span class="val" id="vBuffer">0.15</span></div>
       <input type="range" id="sBuffer" min="0" max="0.40" step="0.01">
     </div>
-    <div class="srow">
+    <div class="srow" id="rowHitbox">
       <div class="lab"><span>ПРОЩЕНИЕ&nbsp;КРАЯ</span><span class="val" id="vHitbox">0.60</span></div>
       <input type="range" id="sHitbox" min="0" max="1.50" step="0.05">
     </div>
@@ -424,11 +424,11 @@
     const c=cube;
     const prevGrounded=c.grounded;
 
-    // smooth horizontal movement
+    // smooth horizontal movement (gentle ease-in/ease-out)
     const dir=(input.right?1:0)-(input.left?1:0);
     const target=dir*moveSpeed();
-    c.vx += (target - c.vx) * Math.min(1, 14*dt);
-    if(dir===0 && Math.abs(c.vx)<2) c.vx=0;
+    c.vx += (target - c.vx) * Math.min(1, 8.5*dt);
+    if(dir===0 && Math.abs(c.vx)<1.5) c.vx=0;
 
     // gravity (with variable-jump low gravity while holding & rising)
     if(!c.grounded){
@@ -459,6 +459,10 @@
     }
 
     updateTimer(dt);
+
+    // faint after-image trail
+    c.trail.unshift({x:c.x, y:c.y, lit:c.holding});
+    if(c.trail.length>8) c.trail.pop();
   }
 
   function updateTimer(dt){
@@ -492,14 +496,24 @@
     }
     ctx.restore();
 
-    // ---- even shadow: the line fades out smoothly under the cube ----
-    const r=tile*1.9;
+    // ---- shadow: small, subtle break in the line right under the cube ----
+    const r=tile*1.05;
     const fade=ctx.createRadialGradient(cxC, groundY, 0, cxC, groundY, r);
     fade.addColorStop(0,   'rgba(0,0,0,1)');
-    fade.addColorStop(0.55,'rgba(0,0,0,1)');
+    fade.addColorStop(0.5, 'rgba(0,0,0,1)');
     fade.addColorStop(1,   'rgba(0,0,0,0)');
     ctx.fillStyle=fade;
     ctx.beginPath(); ctx.arc(cxC, groundY, r, 0, Math.PI*2); ctx.fill();
+
+    // ---- faint after-image trail (matches the cube: filled when lit) ----
+    for(let i=c.trail.length-1;i>=1;i--){
+      const t=c.trail[i];
+      const a=(1 - i/c.trail.length)*0.16;
+      if(a<=0.012) continue;
+      const tx=Math.round(t.x), ty=Math.round(t.y);
+      if(t.lit){ ctx.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')'; ctx.fillRect(tx,ty,c.size,c.size); }
+      else{ ctx.strokeStyle='rgba(255,255,255,'+a.toFixed(3)+')'; ctx.lineWidth=1.2; ctx.strokeRect(tx+.6,ty+.6,c.size-1.2,c.size-1.2); }
+    }
 
     // ---- cube (thin outline; solid white while pressed) ----
     ctx.save();
@@ -514,13 +528,13 @@
 
   function drawTimer(v){
     let txt=v.toFixed(2); if(txt==='-0.00') txt='0.00';
-    const fs=Math.min(W*0.07, H*0.15);
-    const topY=Math.max(6, Math.round(H*0.05));
-    // timer number — ordinary font, medium weight (not heavy bold)
+    const fs=Math.min(W*0.085, H*0.19);
+    const topY=Math.max(6, Math.round(H*0.045));
+    // timer number — rounded system font with soft glow (as in the reference)
     ctx.save();
     ctx.fillStyle='#fff';
-    ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=Math.round(fs*0.22);
-    ctx.font='500 '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
+    ctx.shadowColor='rgba(255,255,255,.6)'; ctx.shadowBlur=Math.round(fs*0.28);
+    ctx.font='bold '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
     ctx.textAlign='center'; ctx.textBaseline='top';
     ctx.fillText(txt, W/2, topY);
     ctx.restore();
@@ -608,6 +622,13 @@
   function syncSettingsUI(){
     settingsModeLbl.textContent='РЕЖИМ: '+M().label;
     document.querySelectorAll('#miniModes .btn').forEach(b=>b.classList.toggle('sel', b.dataset.mode===mode));
+    // show only the settings that belong to the selected mechanic
+    const show=(id,on)=>{ document.getElementById(id).style.display = on?'flex':'none'; };
+    show('rowJump',   M().vary);
+    show('rowPhysics',M().vary);
+    show('rowCoyote', M().coyote);
+    show('rowBuffer', M().buffer);
+    show('rowHitbox', M().hitbox);
     document.getElementById('sJump').value=params.jumpMaxHold;
     document.getElementById('vJump').textContent=params.jumpMaxHold.toFixed(2);
     document.getElementById('sCoyote').value=params.coyoteTime;
