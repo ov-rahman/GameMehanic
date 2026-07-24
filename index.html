@@ -29,10 +29,23 @@
     position:fixed; inset:0; z-index:20;
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    gap:4vh; padding:5vh 4vw; background:#000;
+    gap:3vh; padding:24px 4vw; background:#000;
     transform-origin:center center;
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
   }
   .overlay.hidden{ display:none; }
+
+  /* always-visible close (✕) for the settings menu */
+  #closeBtn{
+    position:fixed; z-index:30; display:none;
+    top:calc(env(safe-area-inset-top,0px) + 10px);
+    right:calc(env(safe-area-inset-right,0px) + 12px);
+    width:44px; height:44px; align-items:center; justify-content:center;
+    background:#000; border:2px solid #fff; color:#fff; cursor:pointer;
+    font-family:inherit; font-size:20px; text-shadow:var(--glow);
+    box-shadow:0 0 8px rgba(255,255,255,.2);
+  }
+  #closeBtn.show{ display:flex; }
   .title{
     font-size:clamp(16px,5vw,34px); letter-spacing:2px; text-align:center;
     line-height:1.5; text-shadow:var(--glow); animation:flicker 4s infinite;
@@ -121,11 +134,27 @@
   #rotate .txt{ font-size:clamp(10px,4vw,16px); letter-spacing:2px; text-shadow:var(--glow); line-height:1.8; }
   @keyframes spin{ 0%,100%{transform:rotate(0);} 50%{transform:rotate(90deg);} }
   @media (orientation:portrait){ #rotate{ display:flex; } }
+
+  /* compact menus for a phone held horizontally (short height) */
+  @media (max-height:520px){
+    .overlay{ gap:8px; padding:14px 4vw; justify-content:flex-start; }
+    .title{ font-size:clamp(13px,5vh,22px); }
+    .subtitle{ font-size:clamp(7px,2.2vh,11px); line-height:1.4; }
+    .btn{ padding:7px 12px; font-size:clamp(9px,3vh,14px); letter-spacing:1px; }
+    .btn small{ margin-top:2px; font-size:.58em; }
+    .settings-box{ gap:6px; }
+    .srow{ padding:6px 10px; gap:4px; }
+    .srow .lab{ font-size:clamp(8px,2.6vh,11px); }
+    .mode-mini .btn{ padding:6px 3px; }
+    .toggleBtn{ padding:4px 12px; }
+  }
 </style>
 </head>
 <body>
 
 <canvas id="game"></canvas>
+
+<button id="closeBtn" aria-label="закрыть">&#10005;</button>
 
 <!-- movement pad: left side only -->
 <div id="pad">
@@ -228,6 +257,7 @@
   let tile=24, groundY=0, bottomY=0, pitFloorY=0;
   let solids=[];        // {x,y,w,h} full rects (walls + floors)
   let tops=[];          // {x0,x1,y} landing surfaces
+  let pit=null;         // {x0,x1,floorY} when the level has a pit
 
   const cube = {
     x:0, y:0, vx:0, vy:0, size:24,
@@ -243,21 +273,22 @@
   function jumpVel(){ return -tile*22; }
 
   function buildLevel(keepPos){
-    tile = Math.round(clamp(H*0.06, 15, 30));
+    tile = Math.round(clamp(H*0.052, 14, 26));
     cube.size = tile;
-    groundY = Math.round(H*0.70);
+    groundY = Math.round(H*0.66);
     bottomY = H + tile*6;
-    pitFloorY = Math.round(clamp(groundY + tile*3.0, groundY+tile*2, H*0.93));
+    pitFloorY = Math.round(clamp(groundY + tile*2.6, groundY+tile*2, H*0.90));
 
-    solids=[]; tops=[];
+    solids=[]; tops=[]; pit=null;
     if(M().pit){
-      const pitX0=Math.round(W*0.42), pitX1=Math.round(W*0.60);
+      const pitX0=Math.round(W*0.44), pitX1=Math.round(W*0.58);
       solids.push({x:0,       y:groundY,   w:pitX0,     h:bottomY-groundY});
       solids.push({x:pitX1,   y:groundY,   w:W-pitX1,   h:bottomY-groundY});
       solids.push({x:pitX0,   y:pitFloorY, w:pitX1-pitX0, h:bottomY-pitFloorY});
       tops.push({x0:0,     x1:pitX0, y:groundY});
       tops.push({x0:pitX1, x1:W,     y:groundY});
       tops.push({x0:pitX0, x1:pitX1, y:pitFloorY});
+      pit={x0:pitX0, x1:pitX1, floorY:pitFloorY};
     } else {
       solids.push({x:0, y:groundY, w:W, h:bottomY-groundY});
       tops.push({x0:0, x1:W, y:groundY});
@@ -428,10 +459,6 @@
     }
 
     updateTimer(dt);
-
-    // trail
-    c.trail.unshift({x:c.x, y:c.y, lit:c.holding});
-    if(c.trail.length>9) c.trail.pop();
   }
 
   function updateTimer(dt){
@@ -448,76 +475,62 @@
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
     const c=cube;
-
-    // faint platform blocks
-    ctx.save();
-    ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=1.5;
-    for(const s of solids){
-      const h=Math.min(s.h, H-s.y+2);
-      ctx.strokeRect(s.x+.5, s.y+.5, s.w-1, h);
-    }
-    ctx.restore();
-
-    // bright top surfaces (the glowing ground line)
-    ctx.save();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=2.5;
-    ctx.shadowColor='rgba(255,255,255,.85)'; ctx.shadowBlur=8;
-    for(const t of tops){
-      ctx.beginPath(); ctx.moveTo(t.x0, t.y); ctx.lineTo(t.x1, t.y); ctx.stroke();
-    }
-    ctx.restore();
-
-    // ---- shadow: floor visually fades away under the cube ----
     const cxC=c.x+c.size/2;
-    const fade=ctx.createRadialGradient(cxC, groundY, 0, cxC, groundY, tile*4.2);
-    fade.addColorStop(0,'rgba(0,0,0,1)');
-    fade.addColorStop(.55,'rgba(0,0,0,.92)');
-    fade.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=fade;
-    ctx.fillRect(cxC-tile*5, groundY-tile*4, tile*10, tile*8);
-    // same soft shadow around the cube itself
-    const fy=c.y+c.size/2;
-    const fade2=ctx.createRadialGradient(cxC, fy, 0, cxC, fy, tile*2.6);
-    fade2.addColorStop(0,'rgba(0,0,0,.85)');
-    fade2.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=fade2;
-    ctx.fillRect(cxC-tile*3, fy-tile*3, tile*6, tile*6);
 
-    // motion trail
-    for(let i=c.trail.length-1;i>=1;i--){
-      const t=c.trail[i]; const a=(1-i/c.trail.length)*0.3;
-      ctx.strokeStyle='rgba(255,255,255,'+a.toFixed(3)+')'; ctx.lineWidth=1.5;
-      ctx.strokeRect(t.x, t.y, c.size, c.size);
-    }
-
-    // cube
+    // ---- terrain: thin hairlines only ----
     ctx.save();
-    ctx.shadowColor='rgba(255,255,255,.9)'; ctx.shadowBlur=c.holding?22:10;
-    if(c.holding){ ctx.fillStyle='#fff'; ctx.fillRect(c.x,c.y,c.size,c.size); }
-    else{ ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.strokeRect(c.x,c.y,c.size,c.size); }
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.lineCap='butt';
+    ctx.shadowColor='rgba(255,255,255,.5)'; ctx.shadowBlur=4;
+    for(const t of tops){
+      ctx.beginPath(); ctx.moveTo(t.x0, t.y+.5); ctx.lineTo(t.x1, t.y+.5); ctx.stroke();
+    }
+    if(pit){ // thin vertical walls of the pit
+      ctx.beginPath();
+      ctx.moveTo(pit.x0+.5, groundY); ctx.lineTo(pit.x0+.5, pit.floorY);
+      ctx.moveTo(pit.x1-.5, groundY); ctx.lineTo(pit.x1-.5, pit.floorY);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // ---- even shadow: the line fades out smoothly under the cube ----
+    const r=tile*1.9;
+    const fade=ctx.createRadialGradient(cxC, groundY, 0, cxC, groundY, r);
+    fade.addColorStop(0,   'rgba(0,0,0,1)');
+    fade.addColorStop(0.55,'rgba(0,0,0,1)');
+    fade.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle=fade;
+    ctx.beginPath(); ctx.arc(cxC, groundY, r, 0, Math.PI*2); ctx.fill();
+
+    // ---- cube (thin outline; solid white while pressed) ----
+    ctx.save();
+    ctx.shadowColor='rgba(255,255,255,.85)'; ctx.shadowBlur=c.holding?14:6;
+    const px=Math.round(c.x), py=Math.round(c.y);
+    if(c.holding){ ctx.fillStyle='#fff'; ctx.fillRect(px, py, c.size, c.size); }
+    else{ ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.strokeRect(px+.7, py+.7, c.size-1.4, c.size-1.4); }
     ctx.restore();
 
     drawTimer(c.timer);
-
-    // mode label (pixel font)
-    ctx.save();
-    ctx.fillStyle='rgba(160,160,160,.9)';
-    ctx.font=Math.max(8,Math.round(H*0.024))+"px 'Pixelify Sans', monospace";
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.fillText(M().label, W/2, H*0.17+6);
-    ctx.restore();
   }
 
   function drawTimer(v){
     let txt=v.toFixed(2); if(txt==='-0.00') txt='0.00';
+    const fs=Math.min(W*0.07, H*0.15);
+    const topY=Math.max(6, Math.round(H*0.05));
+    // timer number — ordinary font, medium weight (not heavy bold)
     ctx.save();
     ctx.fillStyle='#fff';
-    ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=12;
-    const fs=Math.min(W*0.09, H*0.16);
-    // ordinary (non-pixel) font for the timer, as requested
-    ctx.font='bold '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(txt, W/2, H*0.15);
+    ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=Math.round(fs*0.22);
+    ctx.font='500 '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(txt, W/2, topY);
+    ctx.restore();
+    // mechanic name UNDER the timer, clearly separated
+    ctx.save();
+    ctx.fillStyle='rgba(140,140,140,.9)';
+    const lfs=Math.max(8, Math.round(H*0.03));
+    ctx.font=lfs+"px 'Pixelify Sans', monospace";
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText(M().label, W/2, topY + fs + Math.max(5, Math.round(H*0.02)));
     ctx.restore();
   }
 
@@ -536,6 +549,7 @@
   const settingsMenu=document.getElementById('settingsMenu');
   const settingsModeLbl=document.getElementById('settingsMode');
   const pad=document.getElementById('pad');
+  const closeBtn=document.getElementById('closeBtn');
 
   function startGame(m){
     mode=m; buildLevel(false);
@@ -559,8 +573,10 @@
     settingsMenu.classList.remove('hidden');
     settingsMenu.classList.remove('tv-off');
     settingsMenu.classList.add('tv-on');
+    closeBtn.classList.add('show');
   }
   function closeSettings(){
+    closeBtn.classList.remove('show');
     settingsMenu.classList.remove('tv-on'); settingsMenu.classList.add('tv-off');
     setTimeout(()=>{
       settingsMenu.classList.add('hidden'); settingsMenu.classList.remove('tv-off');
@@ -568,6 +584,7 @@
     },450);
   }
   document.getElementById('resumeBtn').addEventListener('click', closeSettings);
+  closeBtn.addEventListener('click', closeSettings);
 
   document.getElementById('miniModes').addEventListener('click', e=>{
     const b=e.target.closest('.btn'); if(!b) return;
