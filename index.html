@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>МЕХАНИКИ ИГРЫ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --glow: 0 0 6px rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.5);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{
+    height:100%; width:100%;
+    background:#000; color:#fff; overflow:hidden;
+    font-family:'Pixelify Sans', monospace;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none; user-select:none;
+    touch-action:none;
+  }
+  #game{
+    position:fixed; inset:0; display:block;
+    width:100%; height:100%;
+    background:#000;
+  }
+
+  /* ---------- Overlays (menus) ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:10;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:5vh; padding:6vh 5vw;
+    background:#000;
+    transform-origin:center center;
+  }
+  .overlay.hidden{ display:none; }
+
+  .title{
+    font-size:clamp(14px, 5vw, 34px);
+    letter-spacing:2px;
+    text-align:center; line-height:1.6;
+    text-shadow:var(--glow);
+    animation:flicker 4s infinite;
+  }
+  .subtitle{
+    font-size:clamp(7px, 2.2vw, 12px);
+    color:#8a8a8a; text-align:center; line-height:2;
+    text-shadow:0 0 4px rgba(255,255,255,.25);
+  }
+
+  .btns{
+    display:flex; flex-direction:column;
+    gap:clamp(10px,2.4vh,18px);
+    width:min(520px, 86vw);
+  }
+  .btn{
+    font-family:inherit;
+    font-size:clamp(10px, 3vw, 16px);
+    color:#fff; background:transparent;
+    border:2px solid #fff;
+    padding:clamp(12px,2.4vh,20px) 16px;
+    cursor:pointer;
+    letter-spacing:2px;
+    text-align:center;
+    text-shadow:var(--glow);
+    box-shadow:0 0 8px rgba(255,255,255,.15), inset 0 0 8px rgba(255,255,255,.05);
+    transition:transform .06s ease, background .12s ease, color .12s ease;
+  }
+  .btn small{
+    display:block; margin-top:8px;
+    font-size:.62em; color:#7a7a7a; letter-spacing:1px;
+    text-shadow:none;
+  }
+  .btn:hover{ background:#fff; color:#000; text-shadow:none; }
+  .btn:hover small{ color:#333; }
+  .btn:active{ transform:scale(.97); }
+  .btn.sel{ background:#fff; color:#000; text-shadow:none; }
+  .btn.sel small{ color:#333; }
+
+  /* settings rows */
+  .settings-box{
+    width:min(560px, 90vw);
+    display:flex; flex-direction:column;
+    gap:clamp(10px,2.2vh,16px);
+  }
+  .srow{
+    display:flex; flex-direction:column; gap:8px;
+    border:2px solid #333; padding:12px 14px;
+    box-shadow:inset 0 0 8px rgba(255,255,255,.04);
+  }
+  .srow .lab{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:clamp(8px,2.4vw,12px); letter-spacing:1px;
+    text-shadow:0 0 4px rgba(255,255,255,.3);
+  }
+  .srow .val{ color:#fff; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:6px; background:#2a2a2a; outline:none;
+    border:1px solid #555;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:20px; height:22px; background:#fff; cursor:pointer;
+    box-shadow:var(--glow);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:20px; height:22px; background:#fff; border:0; cursor:pointer;
+    box-shadow:var(--glow);
+  }
+  .mode-mini{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:6px;
+  }
+  .mode-mini .btn{ padding:10px 4px; font-size:clamp(7px,2.2vw,10px); letter-spacing:1px; }
+  .mode-mini .btn small{ display:none; }
+
+  @keyframes flicker{
+    0%,18%,22%,25%,53%,57%,100%{ opacity:1; }
+    20%,24%,55%{ opacity:.72; }
+  }
+
+  /* ---------- CRT TV animations ---------- */
+  .tv-off{ animation:tvOff .45s cubic-bezier(.5,0,.9,.5) forwards; pointer-events:none; }
+  .tv-on { animation:tvOn  .5s  cubic-bezier(.1,.5,.2,1)   forwards; }
+
+  @keyframes tvOff{
+    0%   { transform:scale(1,1);       filter:brightness(1);  opacity:1; }
+    55%  { transform:scale(1,.006);    filter:brightness(4);  opacity:1; }
+    75%  { transform:scale(.5,.006);   filter:brightness(6);  opacity:1; }
+    100% { transform:scale(0,.001);    filter:brightness(10); opacity:.9; }
+  }
+  @keyframes tvOn{
+    0%   { transform:scale(0,.001);    filter:brightness(12); opacity:.9; }
+    35%  { transform:scale(1,.006);    filter:brightness(7);  opacity:1; }
+    60%  { transform:scale(1,.006);    filter:brightness(5);  opacity:1; }
+    100% { transform:scale(1,1);       filter:brightness(1);  opacity:1; }
+  }
+
+  .hint{
+    position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom, 0px) + 10px);
+    z-index:5; text-align:center;
+    font-size:clamp(6px, 1.8vw, 9px);
+    color:#555; letter-spacing:1px; pointer-events:none;
+    text-shadow:0 0 3px rgba(255,255,255,.15);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+<div class="hint" id="hint">ТАП / ПРОБЕЛ = ПРЫЖОК&nbsp;&nbsp;•&nbsp;&nbsp;3 ПАЛЬЦА / M = МЕНЮ</div>
+
+<!-- START MENU -->
+<div class="overlay" id="startMenu">
+  <div class="title">МЕХАНИКИ</div>
+  <div class="subtitle">ВЫБЕРИ МЕХАНИКУ</div>
+  <div class="btns" id="startBtns">
+    <button class="btn" data-mode="vary">ВЫСОТА&nbsp;ПРЫЖКА<small>держи дольше — прыжок выше</small></button>
+    <button class="btn" data-mode="coyote">ВРЕМЯ&nbsp;КОЙОТА<small>прыжок сразу после края</small></button>
+    <button class="btn" data-mode="buffer">БУФЕР&nbsp;ВВОДА<small>нажми заранее — прыжок при посадке</small></button>
+    <button class="btn" data-mode="hitbox">ПРОЩАЮЩИЕ&nbsp;ХИТБОКСЫ<small>край прощает промах</small></button>
+    <button class="btn" data-mode="all">ВСЁ&nbsp;СРАЗУ<small>все механики вместе</small></button>
+  </div>
+</div>
+
+<!-- SETTINGS MENU -->
+<div class="overlay hidden" id="settingsMenu">
+  <div class="title" style="font-size:clamp(12px,4vw,26px)">НАСТРОЙКИ</div>
+  <div class="subtitle" id="settingsMode">РЕЖИМ: ВСЁ</div>
+
+  <div class="mode-mini" id="miniModes">
+    <button class="btn" data-mode="vary">ПРЫЖОК</button>
+    <button class="btn" data-mode="coyote">КОЙОТ</button>
+    <button class="btn" data-mode="buffer">БУФЕР</button>
+    <button class="btn" data-mode="hitbox">ХИТБОКС</button>
+    <button class="btn" data-mode="all">ВСЁ</button>
+  </div>
+
+  <div class="settings-box">
+    <div class="srow">
+      <div class="lab"><span>УДЕРЖАНИЕ&nbsp;ПРЫЖКА</span><span class="val" id="vJump">0.28</span></div>
+      <input type="range" id="sJump" min="0.06" max="0.50" step="0.01">
+    </div>
+    <div class="srow">
+      <div class="lab"><span>ВРЕМЯ&nbsp;КОЙОТА</span><span class="val" id="vCoyote">0.12</span></div>
+      <input type="range" id="sCoyote" min="0" max="0.40" step="0.01">
+    </div>
+    <div class="srow">
+      <div class="lab"><span>БУФЕР&nbsp;ВВОДА</span><span class="val" id="vBuffer">0.15</span></div>
+      <input type="range" id="sBuffer" min="0" max="0.40" step="0.01">
+    </div>
+    <div class="srow">
+      <div class="lab"><span>ПРОЩЕНИЕ&nbsp;КРАЯ</span><span class="val" id="vHitbox">0.60</span></div>
+      <input type="range" id="sHitbox" min="0" max="1.50" step="0.05">
+    </div>
+  </div>
+
+  <div class="btns" style="width:min(560px,90vw)">
+    <button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  /* ================= Canvas setup ================= */
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width  = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layoutWorld();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', ()=>setTimeout(resize,150));
+
+  /* ================= Tunable params ================= */
+  const params = {
+    jumpMaxHold: 0.28,  // s of holding that still adds height (variable jump)
+    coyoteTime : 0.12,  // s you can still jump after leaving ground
+    bufferTime : 0.15,  // s an early press is remembered before landing
+    hitboxForgive: 0.60 // tiles of landing forgiveness at pit edges
+  };
+
+  /* ================= Mode / mechanic flags ================= */
+  const MODES = {
+    vary  : { vary:true,  coyote:false, buffer:false, hitbox:false, label:'ВЫСОТА ПРЫЖКА' },
+    coyote: { vary:false, coyote:true,  buffer:false, hitbox:false, label:'ВРЕМЯ КОЙОТА'  },
+    buffer: { vary:false, coyote:false, buffer:true,  hitbox:false, label:'БУФЕР ВВОДА' },
+    hitbox: { vary:false, coyote:false, buffer:false, hitbox:true,  label:'ПРОЩАЮЩИЕ ХИТБОКСЫ' },
+    all   : { vary:true,  coyote:true,  buffer:true,  hitbox:true,  label:'ВСЁ СРАЗУ' }
+  };
+  let mode = 'all';
+  function M(){ return MODES[mode]; }
+
+  /* ================= World geometry ================= */
+  let tile = 30;         // base unit ~ cube size
+  let groundY = 0;       // y of platform top surface
+  let cubeScreenX = 0;   // fixed screen x for the cube
+  let speed = 0;         // horizontal world speed (px/s)
+
+  function layoutWorld(){
+    tile = Math.max(16, Math.min(34, Math.round(H * 0.045)));
+    groundY = Math.round(H * 0.80);
+    cubeScreenX = Math.round(W * 0.30);
+    speed = tile * 7.2;
+  }
+
+  /* segments are platform pieces in WORLD coords: {x0, x1} with gaps between */
+  let segments = [];
+  let genX = 0;          // world x up to which we've generated
+  let seed = 12345;
+  function rnd(){ seed = (seed*1664525 + 1013904223) & 0x7fffffff; return seed/0x7fffffff; }
+
+  function resetWorld(){
+    segments = [];
+    genX = -tile*4;
+    seed = 987654321;
+    // a long safe run-up so the first jump isn't instant
+    addSegment(genX, cubeState.wx + W);
+    generateAhead();
+  }
+  function addSegment(x0,x1){ segments.push({x0,x1}); genX = x1; }
+
+  function generateAhead(){
+    const need = cubeState.wx + W*1.5;
+    while(genX < need){
+      // gap width scales with jump ability; vary-mode gaps vary more.
+      const jumpReach = speed * (0.9 + params.jumpMaxHold*1.2); // rough horizontal reach
+      let gapMin = tile*2.0, gapMax = tile*3.2;
+      if(M().vary){ gapMin = tile*2.2; gapMax = Math.min(jumpReach*0.9, tile*5.2); }
+      const gap = gapMin + rnd()*(gapMax-gapMin);
+      const seg = tile*(4 + Math.floor(rnd()*5));
+      addSegment(genX + gap, genX + gap + seg);
+    }
+    // drop old segments behind the camera
+    const minX = cubeState.wx - W;
+    segments = segments.filter(s => s.x1 > minX);
+  }
+
+  // returns the platform top Y at a given world x, considering hitbox forgiveness,
+  // or null if it's open air (a gap)
+  function solidAt(wx, forgive){
+    const pad = forgive ? params.hitboxForgive*tile : 0;
+    for(const s of segments){
+      if(wx >= s.x0 - pad && wx <= s.x1 + pad) return groundY;
+    }
+    return null;
+  }
+
+  /* ================= Cube / physics state ================= */
+  const cubeState = {
+    wx: 0,          // world x of cube left edge
+    y: 0,           // top of cube (screen y)
+    vy: 0,
+    grounded: true,
+    size: 30,
+    holding: false, // jump button currently held
+    jumping: false, // currently in a jump (rising due to input)
+    holdTime: 0,
+    // mechanic bookkeeping
+    coyoteLeft: 0,       // remaining coyote window
+    leftGroundBy: 'none',// 'walk' | 'jump' | 'none'
+    airTime: 0,
+    bufferLeft: 0,       // remaining buffer window from an early press
+    justPressedInAir: false,
+    // display timer
+    timer: 0,
+    timerFrozen: false,
+    dead:false, deadT:0,
+    trail:[]
+  };
+
+  const GRAV = 2400;       // px/s^2 base gravity (scaled below by tile)
+  function gravity(){ return tile*78; }         // scales with size
+  function jumpVel(){ return -tile*23; }        // initial jump velocity
+  function speedX(){ return speed; }
+
+  function resetCube(){
+    cubeState.size = tile;
+    cubeState.wx = 0;
+    cubeState.y = groundY - cubeState.size;
+    cubeState.vy = 0;
+    cubeState.grounded = true;
+    cubeState.jumping = false;
+    cubeState.holding = false;
+    cubeState.holdTime = 0;
+    cubeState.coyoteLeft = 0;
+    cubeState.leftGroundBy = 'none';
+    cubeState.airTime = 0;
+    cubeState.bufferLeft = 0;
+    cubeState.timer = 0;
+    cubeState.timerFrozen = false;
+    cubeState.bufferTracking = false;
+    cubeState.coyoteTracking = false;
+    cubeState.dead = false;
+    cubeState.deadT = 0;
+    cubeState.trail = [];
+    resetWorld();
+  }
+
+  /* ================= Input ================= */
+  const activePointers = new Set();
+
+  function pressJump(){
+    if(gameState !== 'playing') return;
+    const c = cubeState;
+    c.holding = true;
+
+    const canGround = c.grounded;
+    const canCoyote = M().coyote && !c.grounded && c.leftGroundBy==='walk' && c.coyoteLeft>0;
+
+    if(canGround || canCoyote){
+      doJump(canCoyote);
+    } else {
+      // in the air with no jump available -> buffer the press (input buffer)
+      c.justPressedInAir = true;
+      if(M().buffer){
+        c.bufferLeft = params.bufferTime;
+        // start showing negative buffer timer
+        c.timer = 0;
+        c.timerFrozen = false;
+        c.bufferTracking = true;
+      }
+    }
+  }
+
+  function doJump(fromCoyote){
+    const c = cubeState;
+    // freeze coyote timer at the moment of a coyote jump
+    if(fromCoyote){
+      c.timer = c.airTime;     // how late we were (positive)
+      c.timerFrozen = true;
+    }
+    c.vy = jumpVel();
+    c.grounded = false;
+    c.jumping = true;
+    c.holdTime = 0;
+    c.leftGroundBy = 'jump';
+    c.coyoteLeft = 0;
+    c.bufferTracking = false;
+  }
+
+  function releaseJump(){
+    const c = cubeState;
+    c.holding = false;
+    // variable jump height: releasing early cuts upward velocity
+    if(M().vary && c.jumping && c.vy < 0){
+      c.vy *= 0.32;
+    }
+    c.jumping = false;
+  }
+
+  canvas.addEventListener('pointerdown', e=>{
+    activePointers.add(e.pointerId);
+    if(activePointers.size >= 3){
+      openSettings();
+      return;
+    }
+    pressJump();
+  });
+  function pointerEnd(e){
+    activePointers.delete(e.pointerId);
+    if(activePointers.size === 0) releaseJump();
+  }
+  canvas.addEventListener('pointerup', pointerEnd);
+  canvas.addEventListener('pointercancel', pointerEnd);
+
+  window.addEventListener('keydown', e=>{
+    if(e.code === 'Space'){
+      e.preventDefault();
+      if(!e.repeat) pressJump();
+    } else if(e.key === 'm' || e.key === 'M' || e.code === 'Escape'){
+      e.preventDefault();
+      if(gameState === 'settings') closeSettings();
+      else if(gameState === 'playing') openSettings();
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    if(e.code === 'Space'){ e.preventDefault(); releaseJump(); }
+  });
+  // stop iOS pinch / gesture zoom
+  document.addEventListener('gesturestart', e=>e.preventDefault());
+  document.addEventListener('touchmove', e=>{ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+
+  /* ================= Update ================= */
+  function update(dt){
+    const c = cubeState;
+    if(c.dead){
+      c.deadT += dt;
+      if(c.deadT > 0.5){ resetCube(); }
+      return;
+    }
+
+    // advance world
+    c.wx += speedX() * dt;
+    generateAhead();
+
+    const wasGrounded = c.grounded;
+
+    // find ground beneath the cube center
+    const centerWX = c.wx + c.size/2;
+    const surface = solidAt(centerWX, M().hitbox);
+
+    if(c.grounded){
+      // check if we ran off the edge
+      if(surface === null){
+        c.grounded = false;
+        c.leftGroundBy = 'walk';
+        c.airTime = 0;
+        c.coyoteLeft = M().coyote ? params.coyoteTime : 0;
+        // start coyote display timer
+        if(M().coyote && !c.bufferTracking){
+          c.timer = 0; c.timerFrozen = false; c.coyoteTracking = true;
+        }
+      } else {
+        c.y = surface - c.size;
+        c.vy = 0;
+      }
+    }
+
+    if(!c.grounded){
+      c.airTime += dt;
+      // gravity, with variable-jump low-gravity while holding & rising
+      let g = gravity();
+      if(M().vary && c.jumping && c.holding && c.vy < 0 && c.holdTime < params.jumpMaxHold){
+        g *= 0.42;             // float while holding -> higher jump
+        c.holdTime += dt;
+      } else {
+        c.jumping = false;
+      }
+      c.vy += g * dt;
+      c.y  += c.vy * dt;
+
+      // coyote countdown
+      if(c.coyoteLeft > 0){
+        c.coyoteLeft -= dt;
+        if(c.coyoteLeft < 0) c.coyoteLeft = 0;
+      }
+      // buffer countdown
+      if(c.bufferLeft > 0){
+        c.bufferLeft -= dt;
+        if(c.bufferLeft < 0){ c.bufferLeft = 0; c.bufferTracking = false; }
+      }
+
+      // landing test
+      const landSurface = solidAt(centerWX, M().hitbox);
+      if(c.vy > 0 && landSurface !== null && c.y + c.size >= landSurface){
+        // landed
+        const overshoot = (c.y + c.size) - landSurface;
+        c.y = landSurface - c.size;
+        c.vy = 0;
+        c.grounded = true;
+        c.jumping = false;
+        c.leftGroundBy = 'none';
+        c.coyoteLeft = 0;
+        c.airTime = 0;
+
+        // FORGIVING HITBOX: how far past the real edge we were forgiven
+        if(M().hitbox){
+          const margin = edgeForgiveMargin(centerWX);
+          if(margin > 0.001){
+            c.timer = margin;          // shown as tiles forgiven
+            c.timerFrozen = true;
+          }
+        }
+        // INPUT BUFFER: a remembered early press fires now
+        if(M().buffer && c.bufferLeft > 0){
+          c.timerFrozen = true;   // keep showing how early you pressed
+          doJump(false);
+        }
+      }
+
+      // fall death (into a pit)
+      if(c.y > H + tile*2){
+        c.dead = true; c.deadT = 0;
+      }
+    }
+
+    // ---- live timer bookkeeping (mode-appropriate) ----
+    updateTimer(dt);
+
+    // trail
+    c.trail.unshift({x:c.wx, y:c.y, lit:c.holding});
+    if(c.trail.length > 10) c.trail.pop();
+  }
+
+  // how many tiles beyond the true platform edge the cube center is (forgiven)
+  function edgeForgiveMargin(centerWX){
+    // real solidity (no forgiveness)
+    if(solidAt(centerWX, false) !== null) return 0;
+    // it's in a real gap but forgiven -> distance to nearest edge
+    let best = Infinity;
+    for(const s of segments){
+      best = Math.min(best, Math.abs(centerWX - s.x0), Math.abs(centerWX - s.x1));
+    }
+    return Math.min(best/tile, params.hitboxForgive);
+  }
+
+  function updateTimer(dt){
+    const c = cubeState;
+    if(c.timerFrozen) return;
+
+    if(M().buffer && c.bufferTracking && c.bufferLeft > 0){
+      // negative = pressed early, counting up how early
+      c.timer -= dt;
+      return;
+    }
+    if(M().coyote && c.coyoteTracking && c.leftGroundBy==='walk' && c.grounded===false){
+      // positive = time since leaving the ledge
+      c.timer = c.airTime;
+      return;
+    }
+    if(M().vary){
+      if(c.holding && c.jumping){ c.timer = c.holdTime; }
+      return;
+    }
+    // default (hitbox / idle): show current airtime
+    if(!c.grounded){ c.timer = c.airTime; }
+    else if(!M().hitbox){ c.timer = 0; }
+  }
+
+  /* ================= Render ================= */
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,W,H);
+
+    const c = cubeState;
+    const camX = c.wx - cubeScreenX;
+
+    // ---- platforms ----
+    ctx.save();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255,255,255,.85)';
+    ctx.shadowBlur = 8;
+    for(const s of segments){
+      const x0 = s.x0 - camX;
+      const x1 = s.x1 - camX;
+      if(x1 < -20 || x0 > W+20) continue;
+      const w = x1 - x0;
+      const h = H - groundY - 4;
+      // outlined platform block (like the screenshots)
+      ctx.strokeRect(x0, groundY, w, h);
+    }
+    ctx.restore();
+
+    // ---- motion trail (after-images) ----
+    for(let i=c.trail.length-1;i>=1;i--){
+      const t = c.trail[i];
+      const sx = t.x - camX;
+      const a = (1 - i/c.trail.length) * 0.35;
+      ctx.strokeStyle = 'rgba(255,255,255,'+a.toFixed(3)+')';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx, t.y, c.size, c.size);
+    }
+
+    // ---- the cube ----
+    const cx = c.wx - camX;
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,255,255,.9)';
+    ctx.shadowBlur = c.holding ? 22 : 10;
+    if(c.holding){
+      // lit: solid white while pressed
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx, c.y, c.size, c.size);
+    } else {
+      // idle: white outline
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(cx, c.y, c.size, c.size);
+    }
+    ctx.restore();
+
+    // ---- big glowing timer ----
+    drawTimer(c.dead ? 0 : c.timer);
+
+    // small mode label under timer
+    ctx.save();
+    ctx.fillStyle = 'rgba(160,160,160,.9)';
+    ctx.font = Math.max(8, Math.round(H*0.016)) + "px 'Pixelify Sans', monospace";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(M().label, W/2, H*0.14 + 8);
+    ctx.restore();
+
+    // death flash
+    if(c.dead){
+      ctx.fillStyle = 'rgba(255,255,255,'+ Math.max(0, 0.5 - c.deadT).toFixed(3) +')';
+      ctx.fillRect(0,0,W,H);
+    }
+  }
+
+  function drawTimer(v){
+    let txt = v.toFixed(2);
+    if(txt === '-0.00') txt = '0.00';
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(255,255,255,.9)';
+    ctx.shadowBlur = 18;
+    const fs = Math.min(W*0.16, H*0.13);
+    ctx.font = fs + "px 'Pixelify Sans', monospace";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(txt, W/2, H*0.14);
+    ctx.restore();
+  }
+
+  /* ================= Main loop ================= */
+  let gameState = 'menu';  // 'menu' | 'playing' | 'settings'
+  let last = performance.now();
+  function loop(now){
+    let dt = (now - last)/1000;
+    last = now;
+    if(dt > 0.05) dt = 0.05;   // clamp big pauses
+    if(gameState === 'playing'){
+      update(dt);
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  /* ================= Menus ================= */
+  const startMenu = document.getElementById('startMenu');
+  const settingsMenu = document.getElementById('settingsMenu');
+  const settingsModeLbl = document.getElementById('settingsMode');
+  const hint = document.getElementById('hint');
+
+  function startGame(m){
+    mode = m;
+    resetCube();
+    // TV turn-off on the start menu, then hand over to the game
+    startMenu.classList.add('tv-off');
+    setTimeout(()=>{
+      startMenu.classList.add('hidden');
+      startMenu.classList.remove('tv-off');
+      gameState = 'playing';
+    }, 450);
+  }
+
+  document.getElementById('startBtns').addEventListener('click', e=>{
+    const b = e.target.closest('.btn'); if(!b) return;
+    startGame(b.dataset.mode);
+  });
+
+  function openSettings(){
+    if(gameState !== 'playing') return;
+    gameState = 'settings';
+    syncSettingsUI();
+    settingsMenu.classList.remove('hidden');
+    settingsMenu.classList.remove('tv-off');
+    settingsMenu.classList.add('tv-on');
+  }
+  function closeSettings(){
+    settingsMenu.classList.remove('tv-on');
+    settingsMenu.classList.add('tv-off');
+    setTimeout(()=>{
+      settingsMenu.classList.add('hidden');
+      settingsMenu.classList.remove('tv-off');
+      gameState = 'playing';
+    }, 450);
+  }
+
+  document.getElementById('resumeBtn').addEventListener('click', closeSettings);
+
+  // mode switch inside settings
+  document.getElementById('miniModes').addEventListener('click', e=>{
+    const b = e.target.closest('.btn'); if(!b) return;
+    mode = b.dataset.mode;
+    resetCube();
+    syncSettingsUI();
+  });
+
+  // sliders
+  const sliders = [
+    ['sJump','vJump','jumpMaxHold'],
+    ['sCoyote','vCoyote','coyoteTime'],
+    ['sBuffer','vBuffer','bufferTime'],
+    ['sHitbox','vHitbox','hitboxForgive'],
+  ];
+  sliders.forEach(([sid,vid,key])=>{
+    const s = document.getElementById(sid);
+    const v = document.getElementById(vid);
+    s.addEventListener('input', ()=>{
+      params[key] = parseFloat(s.value);
+      v.textContent = params[key].toFixed(2);
+    });
+  });
+
+  function syncSettingsUI(){
+    settingsModeLbl.textContent = 'РЕЖИМ: ' + M().label;
+    document.querySelectorAll('#miniModes .btn').forEach(b=>{
+      b.classList.toggle('sel', b.dataset.mode === mode);
+    });
+    document.getElementById('sJump').value = params.jumpMaxHold;
+    document.getElementById('vJump').textContent = params.jumpMaxHold.toFixed(2);
+    document.getElementById('sCoyote').value = params.coyoteTime;
+    document.getElementById('vCoyote').textContent = params.coyoteTime.toFixed(2);
+    document.getElementById('sBuffer').value = params.bufferTime;
+    document.getElementById('vBuffer').textContent = params.bufferTime.toFixed(2);
+    document.getElementById('sHitbox').value = params.hitboxForgive;
+    document.getElementById('vHitbox').textContent = params.hitboxForgive.toFixed(2);
+  }
+
+  /* ================= Boot ================= */
+  resize();
+  resetCube();
+  // make sure the pixel font is ready before first text draw (best effort)
+  if(document.fonts && document.fonts.load){
+    document.fonts.load("20px 'Pixelify Sans'").catch(()=>{});
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
