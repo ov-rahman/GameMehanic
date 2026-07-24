@@ -206,7 +206,7 @@
   const params = {
     jumpMaxHold:0.28, jumpPhysics:false, coyoteTime:0.12, bufferTime:0.15, hitboxForgive:0.6,
     fallMul:1.9, apexGrav:0.45, fallCap:34, airJumps:1, cornerFix:0.5, accelK:8.5, skidBoost:1.0,
-    wallSlide:8, shakeAmt:1.0, attackR:2.0, hitstop:0.08, lookAhead:0.18, camSmooth:5
+    wallSlide:8, shakeAmt:1.0, attackR:2.0, hitstop:0.08, lookAhead:0.18, camSmooth:5, camDeadzone:0.14
   };
   const PDEF = {
     jumpMaxHold:{label:'УДЕРЖАНИЕ ПРЫЖКА',min:0.06,max:0.5,step:0.01},
@@ -225,7 +225,8 @@
     attackR:{label:'РАДИУС УДАРА',min:1,max:4,step:0.1},
     hitstop:{label:'ЗАМОРОЗКА УДАРА',min:0,max:0.25,step:0.01},
     lookAhead:{label:'УПРЕЖДЕНИЕ КАМЕРЫ',min:0,max:0.45,step:0.02},
-    camSmooth:{label:'ПЛАВНОСТЬ КАМЕРЫ',min:1,max:12,step:0.5}
+    camSmooth:{label:'ПЛАВНОСТЬ КАМЕРЫ',min:1,max:12,step:0.5},
+    camDeadzone:{label:'ЗОНА КАМЕРЫ',min:0,max:0.4,step:0.02}
   };
 
   /* ================= modes ================= */
@@ -255,15 +256,15 @@
     combat:  mk('УДАР ПО ВРАГУ','УДАР',{combat:true}),
     camlook: mk('КАМЕРА: УПРЕЖДЕНИЕ','КАМ.УПР',{camlook:true}),
     camlerp: mk('КАМЕРА: ПЛАВНАЯ','КАМ.ПЛ',{camlerp:true}),
-    all:     mk('ВСЁ СРАЗУ','ВСЁ',{vary:true,coyote:true,buffer:true,hitbox:true,pit:true})
+    all:     mk('ИЗБРАННЫЕ','ИЗБР',{vary:true,coyote:true,buffer:true,hitbox:true,pit:true})
   };
-  const MODE_ORDER = ['vary','coyote','buffer','hitbox','fastfall','apex','fallcap','djump','corner',
-    'accel','skid','ledge','wall','slope','squash','dust','shake','combat','camlook','camlerp','all'];
+  const MODE_ORDER = ['vary','coyote','buffer','hitbox','all','fastfall','apex','fallcap','djump','corner',
+    'accel','ledge','wall','slope','squash','dust','combat','camlook','camlerp'];
   const MODE_PARAMS = {
     vary:['jumpMaxHold','physics'], coyote:['coyoteTime'], buffer:['bufferTime'], hitbox:['hitboxForgive'],
     fastfall:['fallMul'], apex:['apexGrav'], fallcap:['fallCap'], djump:['airJumps'], corner:['cornerFix'],
-    accel:['accelK'], skid:['skidBoost'], ledge:[], wall:['wallSlide'], slope:[], squash:[], dust:[],
-    shake:['shakeAmt'], combat:['attackR','hitstop'], camlook:['lookAhead','camSmooth'], camlerp:['camSmooth'],
+    accel:['accelK'], ledge:[], wall:['wallSlide'], slope:[], squash:[], dust:[],
+    combat:['attackR','hitstop'], camlook:['lookAhead','camDeadzone','camSmooth'], camlerp:['camDeadzone','camSmooth'],
     all:['jumpMaxHold','physics','coyoteTime','bufferTime','hitboxForgive']
   };
   let mode='all';
@@ -279,7 +280,7 @@
     x:0,y:0,vx:0,vy:0,size:24,grounded:true,jumping:false,holding:false,holdTime:0,
     coyoteLeft:0,leftBy:'ground',airTime:0,bufferLeft:0,bufferTracking:false,varyTracking:false,
     timer:0,timerFrozen:false,landedForgiven:0,airJumps:0,hanging:false,wallSide:0,
-    sqx:1,sqy:1,attackT:0,landImpact:0,trail:[]
+    sqx:1,sqy:1,attackT:0,landImpact:0,facing:1,wallLock:0,hang:null,atk:null,trail:[]
   };
 
   const moveSpeed=()=>tile*7.5;
@@ -314,7 +315,7 @@
       sx=Math.round(W*0.16); sy=topY-cube.size;
     } else if(m.corner){
       flat(0,W,gy);
-      const cyTop=Math.round(gy-tile*5), g0=Math.round(W*0.46), g1=Math.round(W*0.54);
+      const cyTop=Math.round(gy-tile*2.8), g0=Math.round(W*0.46), g1=Math.round(W*0.54);
       solids.push({x:0,y:0,w:g0,h:cyTop});
       solids.push({x:g1,y:0,w:W-g1,h:cyTop});
       sx=Math.round(W*0.30);
@@ -355,6 +356,7 @@
     cube.timer=0; cube.timerFrozen=false; cube.bufferTracking=false; cube.varyTracking=false;
     cube.hanging=false; cube.wallSide=0; cube.airJumps=m.djump?params.airJumps:0;
     cube.sqx=1; cube.sqy=1; cube.attackT=0; cube.trail=[];
+    cube.facing=1; cube.wallLock=0; cube.hang=null; cube.atk=null;
     cam={x:0,y:0}; shakeT=0; shakeMag=0; particles=[]; hitstop=0;
   }
 
@@ -439,8 +441,8 @@
     for(const t of tops){
       if(t.y>=groundY-1) continue; // only raised platforms
       if(Math.abs(c.y-t.y)>tile*0.7) continue;
-      if(c.x+c.size>=t.x0-3 && c.x+c.size<=t.x0+tile*0.7){ c.x=t.x0-c.size; c.y=t.y; c.hanging=true; c.vy=0; return; }
-      if(c.x<=t.x1+3 && c.x>=t.x1-tile*0.7){ c.x=t.x1; c.y=t.y; c.hanging=true; c.vy=0; return; }
+      if(c.x+c.size>=t.x0-3 && c.x+c.size<=t.x0+tile*0.7){ c.x=t.x0-c.size; c.y=t.y; c.vy=0; c.hanging=true; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'L'}; return; }
+      if(c.x<=t.x1+3 && c.x>=t.x1-tile*0.7){ c.x=t.x1; c.y=t.y; c.vy=0; c.hanging=true; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'R'}; return; }
     }
   }
 
@@ -453,10 +455,18 @@
     const c=cube;
     if(M().combat){ attack(); return; }
     c.holding=true;
-    if(c.hanging){ c.hanging=false; c.grounded=false; c.vy=jumpVel()*0.75; c.leftBy='jump'; if(M().squash){c.sqx=0.8;c.sqy=1.2;} return; }
+    if(c.hanging){ // climb up onto the grabbed ledge
+      const hg=c.hang; c.hanging=false;
+      c.y=hg.y-c.size; c.x=(hg.dir==='L')?hg.x0:(hg.x1-c.size);
+      c.grounded=true; c.vy=0; c.leftBy='ground'; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
+      return;
+    }
     const canCoyote=M().coyote && !c.grounded && c.coyoteLeft>0 && c.leftBy==='ground' && c.vy>=0;
     if(c.grounded||canCoyote){ doJump(canCoyote); }
-    else if(M().wall && c.wallSide!==0){ c.vy=jumpVel(); c.vx=-c.wallSide*moveSpeed(); c.jumping=true; c.leftBy='jump'; c.wallSide=0; if(M().squash){c.sqx=0.8;c.sqy=1.2;} }
+    else if(M().wall && c.wallSide!==0){ // Silksong-style: hop away from the wall, not straight up
+      c.vy=jumpVel()*0.95; c.vx=-c.wallSide*moveSpeed()*0.85; c.wallLock=0.22;
+      c.jumping=true; c.leftBy='jump'; c.grounded=false; c.wallSide=0; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
+    }
     else if(M().djump && c.airJumps>0){ c.airJumps--; doJump(false); }
     else if(M().buffer){ c.bufferLeft=params.bufferTime; c.bufferTracking=true; c.timer=0; c.timerFrozen=false; }
   }
@@ -476,13 +486,15 @@
   }
   function attack(){
     const c=cube; c.attackT=0.2;
-    if(enemy && enemy.alive){
-      const dx=(c.x+c.size/2)-(enemy.x+enemy.size/2), dy=(c.y+c.size/2)-(enemy.y+enemy.size/2);
-      if(Math.hypot(dx,dy)<=params.attackR*tile){
-        enemy.alive=false; enemy.deadT=1.2; enemy.flash=0.2;
-        hitstop=params.hitstop; triggerShake(1.2);
-        c.timer=params.hitstop; c.timerFrozen=true;
-      }
+    const reach=params.attackR*tile, f=c.facing||1;
+    // a hit box in FRONT of the cube, in the direction it faces / last moved
+    const ax = f>0 ? c.x+c.size*0.2 : c.x+c.size*0.8-reach;
+    const aw = reach+c.size*0.6, ay=c.y-c.size*0.35, ah=c.size*1.7;
+    c.atk={x:ax,y:ay,w:aw,h:ah};
+    if(enemy && enemy.alive && overlap(ax,ay,aw,ah, enemy.x,enemy.y,enemy.size,enemy.size)){
+      enemy.alive=false; enemy.deadT=1.2; enemy.flash=0.2;
+      hitstop=params.hitstop; triggerShake(1.2);
+      c.timer=params.hitstop; c.timerFrozen=true;
     }
   }
   function triggerShake(mag){ shakeT=0.35; shakeMag=tile*1.5*mag*(M().shake?params.shakeAmt:1); }
@@ -528,38 +540,44 @@
   function update(dt){
     if(hitstop>0){ hitstop-=dt; if(shakeT>0) shakeT-=dt; return; }
     const c=cube, prevGrounded=c.grounded, m=M();
-
-    // horizontal
     const dir=(input.right?1:0)-(input.left?1:0);
-    const target=dir*moveSpeed();
-    let smooth=m.accel?params.accelK:10;
-    if(m.skid && dir!==0 && Math.sign(dir)!==Math.sign(c.vx) && Math.abs(c.vx)>10) smooth*=(1.6+params.skidBoost);
-    c.vx += (target-c.vx)*Math.min(1,smooth*dt);
-    if(dir===0 && Math.abs(c.vx)<1.5) c.vx=0;
+    if(dir!==0) c.facing=dir;
 
-    // gravity
-    if(!c.grounded && !c.hanging){
-      let g=gravity();
-      if(m.apex && Math.abs(c.vy)<tile*6) g*=params.apexGrav;
-      if(m.vary && c.jumping && c.holding && c.vy<0 && c.holdTime<params.jumpMaxHold){ g*=(params.jumpPhysics?0.62:0.45); c.holdTime+=dt; }
-      else if(m.vary) c.jumping=false;
-      if(m.fastfall && c.vy>0) g*=params.fallMul;
-      c.vy+=g*dt;
-      const term=m.fallcap?params.fallCap*tile:tile*48;
-      if(c.vy>term) c.vy=term;
+    if(c.hanging){
+      // hanging on a ledge: frozen in place; press away from the wall to drop
+      c.vx=0; c.vy=0;
+      if((c.hang && c.hang.dir==='L' && input.left) || (c.hang && c.hang.dir==='R' && input.right)) c.hanging=false;
+    } else {
+      // horizontal (wall-jump briefly locks control so the hop actually pushes off)
+      const target=dir*moveSpeed();
+      const smooth=m.accel?params.accelK:10;
+      if(c.wallLock>0){ c.wallLock-=dt; }
+      else { c.vx+=(target-c.vx)*Math.min(1,smooth*dt); if(dir===0 && Math.abs(c.vx)<1.5) c.vx=0; }
+
+      // gravity
+      if(!c.grounded){
+        let g=gravity();
+        if(m.apex && Math.abs(c.vy)<tile*6) g*=params.apexGrav;
+        if(m.vary && c.jumping && c.holding && c.vy<0 && c.holdTime<params.jumpMaxHold){ g*=(params.jumpPhysics?0.62:0.45); c.holdTime+=dt; }
+        else if(m.vary) c.jumping=false;
+        if(m.fastfall && c.vy>0) g*=params.fallMul;
+        c.vy+=g*dt;
+        const term=m.fallcap?params.fallCap*tile:tile*48;
+        if(c.vy>term) c.vy=term;
+      }
+
+      // integrate X + walls
+      c.x+=c.vx*dt; resolveHorizontal(); c.x=clamp(c.x,0,worldW-c.size);
+      if(m.wall && !c.grounded){
+        const side=wallTouch(); c.wallSide=side;
+        if(side!==0 && c.vy>0) c.vy=Math.min(c.vy,params.wallSlide*tile);
+      } else c.wallSide=0;
+
+      // integrate Y
+      const pb=c.y+c.size; c.y+=c.vy*dt; resolveVertical(pb);
+      if(m.slope) resolveRamps();
+      if(m.ledge) checkLedge();
     }
-
-    // integrate X + walls
-    c.x+=c.vx*dt; resolveHorizontal(); c.x=clamp(c.x,0,worldW-c.size);
-    if(m.wall && !c.grounded){
-      const side=wallTouch(); c.wallSide=side;
-      if(side!==0 && c.vy>0) c.vy=Math.min(c.vy,params.wallSlide*tile);
-    } else c.wallSide=0;
-
-    // integrate Y
-    if(!c.hanging){ const pb=c.y+c.size; c.y+=c.vy*dt; resolveVertical(pb); }
-    if(m.slope) resolveRamps();
-    if(m.ledge) checkLedge();
 
     // grounded bookkeeping
     if(c.grounded){
@@ -617,13 +635,10 @@
     const c=cube;
     if(camFollowX){
       const cubeC=c.x+c.size/2 + (M().camlook?clamp(c.vx/moveSpeed(),-1,1)*params.lookAhead*W:0);
-      let desired;
-      if(M().camlerp){
-        const dz=W*0.14, center=cam.x+W/2;
-        if(cubeC>center+dz) desired=cubeC-(W/2+dz);
-        else if(cubeC<center-dz) desired=cubeC-(W/2-dz);
-        else desired=cam.x;
-      } else desired=cubeC-W/2;
+      const dz=params.camDeadzone*W, center=cam.x+W/2;
+      let desired=cam.x;
+      if(cubeC>center+dz) desired=cubeC-(W/2+dz);
+      else if(cubeC<center-dz) desired=cubeC-(W/2-dz);
       cam.x+=(desired-cam.x)*Math.min(1,params.camSmooth*dt);
     } else cam.x=0;
     if(camFollowY){ cam.y+=((c.y+c.size/2-H*0.5)-cam.y)*Math.min(1,6*dt); } else cam.y=0;
@@ -697,11 +712,12 @@
       }
     }
 
-    // attack radius
-    if(M().combat && c.attackT>0){
-      ctx.save(); ctx.globalAlpha=Math.min(1,c.attackT/0.2)*0.5;
-      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.shadowColor='rgba(255,255,255,.8)'; ctx.shadowBlur=10;
-      ctx.beginPath(); ctx.arc(cxC,c.y+c.size/2,params.attackR*tile,0,Math.PI*2); ctx.stroke();
+    // directional attack hit box (in the facing direction)
+    if(M().combat && c.attackT>0 && c.atk){
+      const a=Math.min(1,c.attackT/0.2);
+      ctx.save(); ctx.shadowColor='rgba(255,255,255,.8)'; ctx.shadowBlur=10;
+      ctx.globalAlpha=a*0.18; ctx.fillStyle='#fff'; ctx.fillRect(c.atk.x,c.atk.y,c.atk.w,c.atk.h);
+      ctx.globalAlpha=a*0.7; ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(c.atk.x,c.atk.y,c.atk.w,c.atk.h);
       ctx.globalAlpha=1; ctx.restore();
     }
 
@@ -723,6 +739,17 @@
     ctx.restore();
 
     ctx.restore(); // end world
+
+    // camera zone (screen space): camera moves when the cube leaves this box, stops inside it
+    if(camFollowX){
+      const dz=params.camDeadzone*W;
+      ctx.save(); ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.4; ctx.setLineDash([7,7]);
+      ctx.strokeRect(W/2-dz, H*0.14, dz*2, H*0.66);
+      ctx.setLineDash([]);
+      ctx.fillStyle='rgba(150,150,150,.7)'; ctx.font=Math.max(7,Math.round(H*0.02))+"px 'Pixelify Sans',monospace";
+      ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('ЗОНА КАМЕРЫ', W/2, H*0.14-2);
+      ctx.restore();
+    }
 
     drawTimer(c.timer);
   }
