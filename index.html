@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>GAME FEEL</title>
+<title>МЕХАНИКИ ИГРЫ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
 <style>
   :root{
     --glow: 0 0 6px rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.5);
@@ -15,7 +15,7 @@
   html,body{
     height:100%; width:100%;
     background:#000; color:#fff; overflow:hidden;
-    font-family:'Press Start 2P', monospace;
+    font-family:'Pixelify Sans', monospace;
     -webkit-tap-highlight-color:transparent;
     -webkit-user-select:none; user-select:none;
     touch-action:none;
@@ -150,55 +150,55 @@
 <body>
 
 <canvas id="game"></canvas>
-<div class="hint" id="hint">TAP / SPACE = JUMP&nbsp;&nbsp;•&nbsp;&nbsp;3 FINGERS / M = MENU</div>
+<div class="hint" id="hint">ТАП / ПРОБЕЛ = ПРЫЖОК&nbsp;&nbsp;•&nbsp;&nbsp;3 ПАЛЬЦА / M = МЕНЮ</div>
 
 <!-- START MENU -->
 <div class="overlay" id="startMenu">
-  <div class="title">GAME&nbsp;FEEL</div>
-  <div class="subtitle">CHOOSE A MECHANIC</div>
+  <div class="title">МЕХАНИКИ</div>
+  <div class="subtitle">ВЫБЕРИ МЕХАНИКУ</div>
   <div class="btns" id="startBtns">
-    <button class="btn" data-mode="vary">VARIABLE&nbsp;JUMP<small>hold longer = jump higher</small></button>
-    <button class="btn" data-mode="coyote">COYOTE&nbsp;TIME<small>jump just after leaving the edge</small></button>
-    <button class="btn" data-mode="buffer">INPUT&nbsp;BUFFER<small>press early, jump on landing</small></button>
-    <button class="btn" data-mode="hitbox">FORGIVING&nbsp;HITBOX<small>edges land even when you clip</small></button>
-    <button class="btn" data-mode="all">ALL&nbsp;TOGETHER<small>every mechanic at once</small></button>
+    <button class="btn" data-mode="vary">ВЫСОТА&nbsp;ПРЫЖКА<small>держи дольше — прыжок выше</small></button>
+    <button class="btn" data-mode="coyote">ВРЕМЯ&nbsp;КОЙОТА<small>прыжок сразу после края</small></button>
+    <button class="btn" data-mode="buffer">БУФЕР&nbsp;ВВОДА<small>нажми заранее — прыжок при посадке</small></button>
+    <button class="btn" data-mode="hitbox">ПРОЩАЮЩИЕ&nbsp;ХИТБОКСЫ<small>край прощает промах</small></button>
+    <button class="btn" data-mode="all">ВСЁ&nbsp;СРАЗУ<small>все механики вместе</small></button>
   </div>
 </div>
 
 <!-- SETTINGS MENU -->
 <div class="overlay hidden" id="settingsMenu">
-  <div class="title" style="font-size:clamp(12px,4vw,26px)">SETTINGS</div>
-  <div class="subtitle" id="settingsMode">MODE: ALL</div>
+  <div class="title" style="font-size:clamp(12px,4vw,26px)">НАСТРОЙКИ</div>
+  <div class="subtitle" id="settingsMode">РЕЖИМ: ВСЁ</div>
 
   <div class="mode-mini" id="miniModes">
-    <button class="btn" data-mode="vary">JUMP</button>
-    <button class="btn" data-mode="coyote">COYOTE</button>
-    <button class="btn" data-mode="buffer">BUFFER</button>
-    <button class="btn" data-mode="hitbox">HITBOX</button>
-    <button class="btn" data-mode="all">ALL</button>
+    <button class="btn" data-mode="vary">ПРЫЖОК</button>
+    <button class="btn" data-mode="coyote">КОЙОТ</button>
+    <button class="btn" data-mode="buffer">БУФЕР</button>
+    <button class="btn" data-mode="hitbox">ХИТБОКС</button>
+    <button class="btn" data-mode="all">ВСЁ</button>
   </div>
 
   <div class="settings-box">
     <div class="srow">
-      <div class="lab"><span>JUMP&nbsp;HOLD</span><span class="val" id="vJump">0.28</span></div>
+      <div class="lab"><span>УДЕРЖАНИЕ&nbsp;ПРЫЖКА</span><span class="val" id="vJump">0.28</span></div>
       <input type="range" id="sJump" min="0.06" max="0.50" step="0.01">
     </div>
     <div class="srow">
-      <div class="lab"><span>COYOTE&nbsp;TIME</span><span class="val" id="vCoyote">0.12</span></div>
+      <div class="lab"><span>ВРЕМЯ&nbsp;КОЙОТА</span><span class="val" id="vCoyote">0.12</span></div>
       <input type="range" id="sCoyote" min="0" max="0.40" step="0.01">
     </div>
     <div class="srow">
-      <div class="lab"><span>INPUT&nbsp;BUFFER</span><span class="val" id="vBuffer">0.15</span></div>
+      <div class="lab"><span>БУФЕР&nbsp;ВВОДА</span><span class="val" id="vBuffer">0.15</span></div>
       <input type="range" id="sBuffer" min="0" max="0.40" step="0.01">
     </div>
     <div class="srow">
-      <div class="lab"><span>HITBOX&nbsp;FORGIVE</span><span class="val" id="vHitbox">0.60</span></div>
+      <div class="lab"><span>ПРОЩЕНИЕ&nbsp;КРАЯ</span><span class="val" id="vHitbox">0.60</span></div>
       <input type="range" id="sHitbox" min="0" max="1.50" step="0.05">
     </div>
   </div>
 
   <div class="btns" style="width:min(560px,90vw)">
-    <button class="btn" id="resumeBtn">RESUME</button>
+    <button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button>
   </div>
 </div>
 
@@ -234,11 +234,11 @@
 
   /* ================= Mode / mechanic flags ================= */
   const MODES = {
-    vary  : { vary:true,  coyote:false, buffer:false, hitbox:false, label:'VARIABLE JUMP' },
-    coyote: { vary:false, coyote:true,  buffer:false, hitbox:false, label:'COYOTE TIME'  },
-    buffer: { vary:false, coyote:false, buffer:true,  hitbox:false, label:'INPUT BUFFER' },
-    hitbox: { vary:false, coyote:false, buffer:false, hitbox:true,  label:'FORGIVING HITBOX' },
-    all   : { vary:true,  coyote:true,  buffer:true,  hitbox:true,  label:'ALL' }
+    vary  : { vary:true,  coyote:false, buffer:false, hitbox:false, label:'ВЫСОТА ПРЫЖКА' },
+    coyote: { vary:false, coyote:true,  buffer:false, hitbox:false, label:'ВРЕМЯ КОЙОТА'  },
+    buffer: { vary:false, coyote:false, buffer:true,  hitbox:false, label:'БУФЕР ВВОДА' },
+    hitbox: { vary:false, coyote:false, buffer:false, hitbox:true,  label:'ПРОЩАЮЩИЕ ХИТБОКСЫ' },
+    all   : { vary:true,  coyote:true,  buffer:true,  hitbox:true,  label:'ВСЁ СРАЗУ' }
   };
   let mode = 'all';
   function M(){ return MODES[mode]; }
@@ -629,7 +629,7 @@
     // small mode label under timer
     ctx.save();
     ctx.fillStyle = 'rgba(160,160,160,.9)';
-    ctx.font = Math.max(8, Math.round(H*0.016)) + "px 'Press Start 2P', monospace";
+    ctx.font = Math.max(8, Math.round(H*0.016)) + "px 'Pixelify Sans', monospace";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(M().label, W/2, H*0.14 + 8);
@@ -650,7 +650,7 @@
     ctx.shadowColor = 'rgba(255,255,255,.9)';
     ctx.shadowBlur = 18;
     const fs = Math.min(W*0.16, H*0.13);
-    ctx.font = fs + "px 'Press Start 2P', monospace";
+    ctx.font = fs + "px 'Pixelify Sans', monospace";
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(txt, W/2, H*0.14);
@@ -739,7 +739,7 @@
   });
 
   function syncSettingsUI(){
-    settingsModeLbl.textContent = 'MODE: ' + M().label;
+    settingsModeLbl.textContent = 'РЕЖИМ: ' + M().label;
     document.querySelectorAll('#miniModes .btn').forEach(b=>{
       b.classList.toggle('sel', b.dataset.mode === mode);
     });
@@ -758,7 +758,7 @@
   resetCube();
   // make sure the pixel font is ready before first text draw (best effort)
   if(document.fonts && document.fonts.load){
-    document.fonts.load("20px 'Press Start 2P'").catch(()=>{});
+    document.fonts.load("20px 'Pixelify Sans'").catch(()=>{});
   }
   requestAnimationFrame(loop);
 })();
