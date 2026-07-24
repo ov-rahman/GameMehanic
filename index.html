@@ -22,21 +22,7 @@
     -webkit-user-select:none; user-select:none;
     touch-action:none; overscroll-behavior:none;
   }
-  #game{ position:fixed; inset:0; display:block; width:100%; height:100%; background:#000; border-radius:16px; }
-
-  /* CRT overlay: scanlines, vignette, glass glare (over the bulged canvas) */
-  #crt{
-    position:fixed; inset:0; z-index:4; pointer-events:none; border-radius:16px;
-    background:
-      repeating-linear-gradient(0deg,
-        rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.16) 3px, rgba(0,0,0,0) 4px);
-    box-shadow: inset 0 0 140px rgba(0,0,0,.85), inset 0 0 46px rgba(0,0,0,.55);
-  }
-  #crt::after{
-    content:''; position:absolute; inset:0; border-radius:16px;
-    background:radial-gradient(130% 65% at 50% -12%, rgba(255,255,255,.06), rgba(255,255,255,0) 55%);
-  }
-  @media (max-width:900px){ #game,#crt,#crt::after{ border-radius:12px; } }
+  #game{ position:fixed; inset:0; display:block; width:100%; height:100%; background:#000; }
 
   /* ---------- Overlays (menus) ---------- */
   .overlay{
@@ -167,7 +153,6 @@
 <body>
 
 <canvas id="game"></canvas>
-<div id="crt"></div>
 
 <button id="closeBtn" aria-label="закрыть">&#10005;</button>
 
@@ -518,7 +503,7 @@
 
     // ---- shadow: hard-edged gap, a bit bigger than the cube (no soft fade) ----
     ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.arc(cxC, groundY, c.size*0.72, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cxC, groundY, c.size*0.82, 0, Math.PI*2); ctx.fill();
 
     // ---- faint after-image trail (matches the cube: filled when lit) ----
     for(let i=c.trail.length-1;i>=1;i--){
@@ -574,21 +559,28 @@
     requestAnimationFrame(loop);
   }
 
-  // blit the buffer to screen with a gentle convex (CRT) bulge
+  // blit the buffer to screen with a convex (bulging) screen effect
   function present(){
     const pw=canvas.width, ph=canvas.height;
     vctx.clearRect(0,0,pw,ph);
     vctx.fillStyle='#000'; vctx.fillRect(0,0,pw,ph);
-    const cx=pw/2, cy=ph/2;
-    const amp=0.030;                        // how convex the screen looks
-    const sw=Math.max(2, Math.round(4*DPR));// slice width in device px
+    const cx=pw/2;
+    const bow  = ph*0.055;   // vertical bow: lines dip at the centre
+    const mag  = 0.07;       // extra magnification in the middle
+    const hcomp= 0.06;       // horizontal squeeze towards the edges
+    const sw=Math.max(2, Math.round(3*DPR));
     for(let x=0; x<pw; x+=sw){
       const w=Math.min(sw, pw-x);
-      const nx=((x+w/2)-cx)/cx;             // -1..1 across the screen
-      const scaleY=1+amp*(1-nx*nx);         // stretch most in the middle
+      const cxs=x+w/2;
+      const nx=(cxs-cx)/cx;          // -1..1 across the screen
+      const k=1-nx*nx;              // 1 at centre, 0 at the edges
+      const scaleY=1+mag*k;
       const dh=ph*scaleY;
-      const dy=cy*(1-scaleY);
-      vctx.drawImage(buf, x,0,w,ph, x-0.5,dy, w+1,dh);
+      const dy=(ph-dh)/2 + bow*k;   // magnify about centre, then bow down
+      const hc=1-hcomp*nx*nx;       // pull edges inward for a domed look
+      const dw=w*hc;
+      const dx=cx+(cxs-cx)*hc - dw/2;
+      vctx.drawImage(buf, x,0,w,ph, dx, dy, dw+0.6, dh);
     }
   }
 
