@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "21st": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://21st.dev/api/mcp"
+      ]
+    }
+  }
+}
