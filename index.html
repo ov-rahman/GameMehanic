@@ -280,7 +280,7 @@
     x:0,y:0,vx:0,vy:0,size:24,grounded:true,jumping:false,holding:false,holdTime:0,
     coyoteLeft:0,leftBy:'ground',airTime:0,bufferLeft:0,bufferTracking:false,varyTracking:false,
     timer:0,timerFrozen:false,landedForgiven:0,airJumps:0,hanging:false,wallSide:0,
-    sqx:1,sqy:1,attackT:0,landImpact:0,facing:1,wallLock:0,hang:null,atk:null,trail:[]
+    sqx:1,sqy:1,attackT:0,landImpact:0,facing:1,wallLock:0,hang:null,atk:null,grabLock:0,trail:[]
   };
 
   const moveSpeed=()=>tile*7.5;
@@ -356,7 +356,7 @@
     cube.timer=0; cube.timerFrozen=false; cube.bufferTracking=false; cube.varyTracking=false;
     cube.hanging=false; cube.wallSide=0; cube.airJumps=m.djump?params.airJumps:0;
     cube.sqx=1; cube.sqy=1; cube.attackT=0; cube.trail=[];
-    cube.facing=1; cube.wallLock=0; cube.hang=null; cube.atk=null;
+    cube.facing=1; cube.wallLock=0; cube.hang=null; cube.atk=null; cube.grabLock=0;
     cam={x:0,y:0}; shakeT=0; shakeMag=0; particles=[]; hitstop=0;
   }
 
@@ -441,8 +441,8 @@
     for(const t of tops){
       if(t.y>=groundY-1) continue; // only raised platforms
       if(Math.abs(c.y-t.y)>tile*0.7) continue;
-      if(c.x+c.size>=t.x0-3 && c.x+c.size<=t.x0+tile*0.7){ c.x=t.x0-c.size; c.y=t.y; c.vy=0; c.hanging=true; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'L'}; return; }
-      if(c.x<=t.x1+3 && c.x>=t.x1-tile*0.7){ c.x=t.x1; c.y=t.y; c.vy=0; c.hanging=true; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'R'}; return; }
+      if(c.x+c.size>=t.x0-3 && c.x+c.size<=t.x0+tile*0.7){ c.x=t.x0-c.size; c.y=t.y; c.vy=0; c.hanging=true; c.grabLock=0.15; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'L'}; return; }
+      if(c.x<=t.x1+3 && c.x>=t.x1-tile*0.7){ c.x=t.x1; c.y=t.y; c.vy=0; c.hanging=true; c.grabLock=0.15; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'R'}; return; }
     }
   }
 
@@ -455,16 +455,16 @@
     const c=cube;
     if(M().combat){ attack(); return; }
     c.holding=true;
-    if(c.hanging){ // climb up onto the grabbed ledge
-      const hg=c.hang; c.hanging=false;
-      c.y=hg.y-c.size; c.x=(hg.dir==='L')?hg.x0:(hg.x1-c.size);
-      c.grounded=true; c.vy=0; c.leftBy='ground'; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
+    if(c.hanging){ // jump off the ledge (a small hop, mostly up, slight nudge toward the platform)
+      const hg=c.hang; c.hanging=false; c.grounded=false;
+      c.vy=jumpVel()*1.12; c.vx=(hg.dir==='L'?1:-1)*moveSpeed()*0.3; c.wallLock=0.1;
+      c.jumping=true; c.leftBy='jump'; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
       return;
     }
     const canCoyote=M().coyote && !c.grounded && c.coyoteLeft>0 && c.leftBy==='ground' && c.vy>=0;
     if(c.grounded||canCoyote){ doJump(canCoyote); }
-    else if(M().wall && c.wallSide!==0){ // Silksong-style: hop away from the wall, not straight up
-      c.vy=jumpVel()*0.95; c.vx=-c.wallSide*moveSpeed()*0.85; c.wallLock=0.22;
+    else if(M().wall && c.wallSide!==0){ // hop off the wall AND gain height, so you can actually climb up
+      c.vy=jumpVel()*1.18; c.vx=-c.wallSide*moveSpeed()*0.5; c.wallLock=0.12;
       c.jumping=true; c.leftBy='jump'; c.grounded=false; c.wallSide=0; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
     }
     else if(M().djump && c.airJumps>0){ c.airJumps--; doJump(false); }
@@ -544,9 +544,10 @@
     if(dir!==0) c.facing=dir;
 
     if(c.hanging){
-      // hanging on a ledge: frozen in place; press away from the wall to drop
+      // hanging on a ledge: frozen in place. Any left/right press = let go.
       c.vx=0; c.vy=0;
-      if((c.hang && c.hang.dir==='L' && input.left) || (c.hang && c.hang.dir==='R' && input.right)) c.hanging=false;
+      if(c.grabLock>0) c.grabLock-=dt;
+      else if(input.left||input.right) c.hanging=false;
     } else {
       // horizontal (wall-jump briefly locks control so the hop actually pushes off)
       const target=dir*moveSpeed();
