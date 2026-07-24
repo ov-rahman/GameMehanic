@@ -2,890 +2,628 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
-<title>МЕХАНИКИ ИГРЫ</title>
+<title>GAME FEEL — Обучение механикам в Unity</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --glow:0 0 6px rgba(255,255,255,.9), 0 0 14px rgba(255,255,255,.5); }
+  :root{
+    --fg:#fff; --dim:#8a8a8a; --dim2:#5a5a5a; --line:#333;
+    --glow:0 0 6px rgba(255,255,255,.85), 0 0 16px rgba(255,255,255,.4);
+    --pix:'Pixelify Sans', monospace;
+    --mono:'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
   *{ box-sizing:border-box; margin:0; padding:0; }
-  html,body{
-    height:100%; width:100%;
-    background:#000; color:#fff; overflow:hidden;
-    font-family:'Pixelify Sans', monospace;
-    -webkit-tap-highlight-color:transparent;
-    -webkit-user-select:none; user-select:none;
-    touch-action:none; overscroll-behavior:none;
+  html{ scroll-behavior:smooth; }
+  body{
+    background:#000; color:var(--fg); font-family:var(--mono);
+    line-height:1.65; overflow-x:hidden; -webkit-tap-highlight-color:transparent;
   }
-  #game{ position:fixed; inset:0; display:block; width:100%; height:100%; background:#000; }
+  ::selection{ background:#fff; color:#000; }
 
-  /* ---------- Overlays (menus) ---------- */
-  .overlay{
-    position:fixed; inset:0; z-index:20;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:flex-start;
-    gap:2.4vh; padding:24px 4vw; background:#000;
-    transform-origin:center center;
-    overflow-y:auto; -webkit-overflow-scrolling:touch;
-  }
-  .overlay.hidden{ display:none; }
+  /* scanline + vignette overlay */
+  #scan{ position:fixed; inset:0; z-index:60; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(255,255,255,.028) 3px, rgba(0,0,0,0) 4px);
+    box-shadow:inset 0 0 160px rgba(0,0,0,.9); mix-blend-mode:screen; }
 
-  #closeBtn{
-    position:fixed; z-index:30; display:none;
-    top:calc(env(safe-area-inset-top,0px) + 10px);
-    right:calc(env(safe-area-inset-right,0px) + 12px);
-    width:44px; height:44px; align-items:center; justify-content:center;
-    background:#000; border:2px solid #fff; color:#fff; cursor:pointer;
-    font-family:inherit; font-size:20px; text-shadow:var(--glow);
-    box-shadow:0 0 8px rgba(255,255,255,.2);
-  }
-  #closeBtn.show{ display:flex; }
+  .wrap{ width:min(1000px,92vw); margin:0 auto; }
+  h1,h2,h3,.pix{ font-family:var(--pix); letter-spacing:1px; }
 
-  .title{
-    font-size:clamp(16px,5vw,32px); letter-spacing:2px; text-align:center;
-    line-height:1.4; text-shadow:var(--glow); animation:flicker 4s infinite; margin-top:6px;
-  }
-  .subtitle{
-    font-size:clamp(8px,2.2vw,12px); color:#8a8a8a; text-align:center;
-    line-height:1.7; text-shadow:0 0 4px rgba(255,255,255,.25);
-  }
-  .btns{ display:flex; flex-direction:column; gap:10px; width:min(520px,90vw); }
-  #startBtns{
-    display:grid; grid-template-columns:1fr 1fr; gap:8px; width:min(720px,94vw);
-  }
-  .btn{
-    font-family:inherit; font-size:clamp(9px,2.6vw,14px); color:#fff; background:transparent;
-    border:2px solid #fff; padding:11px 8px; cursor:pointer;
-    letter-spacing:1px; text-align:center; text-shadow:var(--glow);
-    box-shadow:0 0 8px rgba(255,255,255,.15), inset 0 0 8px rgba(255,255,255,.05);
-    transition:transform .06s ease, background .12s ease, color .12s ease;
-  }
+  /* ---------- hero ---------- */
+  header.hero{ min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:26px; padding:40px 5vw; position:relative; }
+  .hero h1{ font-size:clamp(30px,9vw,84px); line-height:1.05; text-shadow:var(--glow); animation:flicker 5s infinite; }
+  .hero .sub{ color:var(--dim); font-size:clamp(11px,2.6vw,17px); max-width:640px; }
+  .hero .tag{ font-family:var(--pix); color:var(--dim2); font-size:clamp(9px,2vw,12px); letter-spacing:3px; }
+  .blink{ animation:blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{opacity:0;} }
+  @keyframes flicker{ 0%,17%,20%,23%,55%,57%,100%{opacity:1;} 18%,22%,56%{opacity:.7;} }
+  .scrolldown{ position:absolute; bottom:22px; color:var(--dim2); font-family:var(--pix); font-size:11px; letter-spacing:2px; animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob{ 50%{transform:translateY(6px);} }
+
+  .btn{ font-family:var(--pix); font-size:clamp(11px,2.6vw,15px); letter-spacing:2px; color:#fff;
+    background:transparent; border:2px solid #fff; padding:14px 26px; cursor:pointer; text-decoration:none;
+    display:inline-flex; align-items:center; gap:10px; text-shadow:var(--glow);
+    box-shadow:0 0 10px rgba(255,255,255,.15), inset 0 0 10px rgba(255,255,255,.05);
+    transition:transform .07s, background .15s, color .15s; }
   .btn:hover{ background:#fff; color:#000; text-shadow:none; }
   .btn:active{ transform:scale(.97); }
-  .btn.sel{ background:#fff; color:#000; text-shadow:none; }
+  .btn.big{ padding:20px 34px; font-size:clamp(13px,3vw,20px); }
 
-  .settings-box{ width:min(560px,92vw); display:flex; flex-direction:column; gap:10px; }
-  .srow{ display:flex; flex-direction:column; gap:8px; border:2px solid #333; padding:10px 12px;
-         box-shadow:inset 0 0 8px rgba(255,255,255,.04); }
-  .srow .lab{ display:flex; justify-content:space-between; align-items:center;
-              font-size:clamp(8px,2.4vw,11px); letter-spacing:1px; text-shadow:0 0 4px rgba(255,255,255,.3); }
-  .srow .val{ color:#fff; }
-  .empty{ color:#666; font-size:clamp(8px,2.4vw,11px); text-align:center; padding:8px; }
-  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:6px; background:#2a2a2a; outline:none; border:1px solid #555; }
-  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:20px; height:22px; background:#fff; cursor:pointer; box-shadow:var(--glow); }
-  input[type=range]::-moz-range-thumb{ width:20px; height:22px; background:#fff; border:0; cursor:pointer; box-shadow:var(--glow); }
-  .toggleBtn{ align-self:flex-start; padding:5px 14px; font-size:clamp(8px,2.4vw,12px); }
-  #miniModes{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; width:min(620px,94vw); }
-  #miniModes .btn{ padding:8px 3px; font-size:clamp(7px,2vw,10px); letter-spacing:0; }
+  /* ---------- sections ---------- */
+  section{ padding:60px 0; }
+  .kicker{ font-family:var(--pix); color:var(--dim2); letter-spacing:3px; font-size:12px; margin-bottom:12px; }
+  h2.title{ font-size:clamp(20px,5vw,40px); text-shadow:var(--glow); margin-bottom:20px; }
+  .lead{ color:var(--dim); font-size:clamp(12px,2.4vw,16px); max-width:720px; }
+  .lead b{ color:#fff; }
 
-  @keyframes flicker{ 0%,18%,22%,25%,53%,57%,100%{opacity:1;} 20%,24%,55%{opacity:.72;} }
+  .grid3{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:26px; }
+  .mini{ border:2px solid var(--line); padding:16px; }
+  .mini h4{ font-family:var(--pix); font-size:13px; margin-bottom:8px; text-shadow:0 0 6px rgba(255,255,255,.3); }
+  .mini p{ color:var(--dim); font-size:13px; }
 
-  .tv-off{ animation:tvOff .45s cubic-bezier(.5,0,.9,.5) forwards; pointer-events:none; }
-  .tv-on { animation:tvOn  .5s  cubic-bezier(.1,.5,.2,1)   forwards; }
-  @keyframes tvOff{
-    0%{transform:scale(1,1);filter:brightness(1);opacity:1;}
-    55%{transform:scale(1,.006);filter:brightness(4);opacity:1;}
-    75%{transform:scale(.5,.006);filter:brightness(6);opacity:1;}
-    100%{transform:scale(0,.001);filter:brightness(10);opacity:.9;}
-  }
-  @keyframes tvOn{
-    0%{transform:scale(0,.001);filter:brightness(12);opacity:.9;}
-    35%{transform:scale(1,.006);filter:brightness(7);opacity:1;}
-    60%{transform:scale(1,.006);filter:brightness(5);opacity:1;}
-    100%{transform:scale(1,1);filter:brightness(1);opacity:1;}
-  }
+  /* ---------- progress ---------- */
+  .progwrap{ display:flex; align-items:center; gap:14px; margin:8px 0 30px; }
+  .progbar{ flex:1; height:10px; border:2px solid #fff; box-shadow:0 0 8px rgba(255,255,255,.2); }
+  .progfill{ height:100%; width:0; background:#fff; box-shadow:0 0 10px #fff; transition:width .5s ease; }
+  .progtxt{ font-family:var(--pix); font-size:12px; color:var(--dim); white-space:nowrap; }
 
-  #pad{
-    position:fixed; z-index:15; display:none; gap:14px;
-    left:calc(env(safe-area-inset-left,0px) + 16px);
-    bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
-  }
-  #pad.show{ display:flex; }
-  .ctrl{
-    width:clamp(56px,10vw,76px); height:clamp(56px,10vw,76px);
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.35); border:2px solid #fff; color:#fff;
-    font-family:inherit; font-size:clamp(22px,5vw,30px); cursor:pointer;
-    text-shadow:var(--glow); box-shadow:0 0 8px rgba(255,255,255,.18), inset 0 0 8px rgba(255,255,255,.05);
-    touch-action:none;
-  }
-  .ctrl.act{ background:#fff; color:#000; text-shadow:none; }
-  #btnAttack{
-    position:fixed; z-index:15; display:none; align-items:center; justify-content:center;
-    right:calc(env(safe-area-inset-right,0px) + 16px);
-    bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
-    width:clamp(64px,12vw,92px); height:clamp(64px,12vw,92px);
-    background:rgba(0,0,0,.35); border:2px solid #fff; color:#fff;
-    font-family:inherit; font-size:clamp(11px,2.6vw,15px); letter-spacing:1px; cursor:pointer;
-    text-shadow:var(--glow); box-shadow:0 0 8px rgba(255,255,255,.18), inset 0 0 8px rgba(255,255,255,.05);
-    touch-action:none;
-  }
-  #btnAttack.show{ display:flex; }
-  #btnAttack.act{ background:#fff; color:#000; text-shadow:none; }
+  /* ---------- lesson path ---------- */
+  .path{ display:flex; flex-direction:column; gap:16px; }
+  .card{ position:relative; border:2px solid var(--line); padding:18px 18px 18px 20px; cursor:pointer;
+    display:flex; align-items:center; gap:18px; background:#000; overflow:hidden;
+    transition:border-color .2s, transform .1s, box-shadow .2s; opacity:0; transform:translateY(24px); }
+  .card.in{ opacity:1; transform:none; }
+  .card:hover{ border-color:#fff; box-shadow:0 0 18px rgba(255,255,255,.12); }
+  .card .num{ font-family:var(--pix); font-size:clamp(22px,6vw,40px); width:1.6em; text-align:center; color:#fff; text-shadow:var(--glow); flex:none; }
+  .card .body{ flex:1; min-width:0; }
+  .card .body h3{ font-size:clamp(14px,3.4vw,20px); text-shadow:0 0 6px rgba(255,255,255,.35); }
+  .card .body p{ color:var(--dim); font-size:13px; margin-top:4px; }
+  .card .go{ font-family:var(--pix); color:var(--dim2); font-size:22px; flex:none; }
+  .card.locked{ cursor:not-allowed; opacity:.5; }
+  .card.locked:hover{ border-color:var(--line); box-shadow:none; }
+  .card.locked .go::before{ content:'🔒'; }
+  .card.locked .go{ font-size:16px; }
+  .card.done{ border-color:#2a5; }
+  .card.done .num::after{ content:' ✓'; color:#4f8; font-size:.5em; }
+  .pips{ display:inline-flex; gap:3px; margin-left:8px; vertical-align:middle; }
+  .pip{ width:8px; height:8px; border:1px solid var(--dim); }
+  .pip.on{ background:#fff; border-color:#fff; box-shadow:0 0 5px #fff; }
 
-  .hint{
-    position:fixed; left:0; right:0; z-index:5; text-align:center;
-    bottom:calc(env(safe-area-inset-bottom,0px) + 8px);
-    font-size:clamp(6px,1.6vw,9px); color:#555; letter-spacing:1px; pointer-events:none;
-    text-shadow:0 0 3px rgba(255,255,255,.15); padding:0 96px;
-  }
+  .tip{ border:2px dashed var(--line); padding:16px 18px; opacity:0; transform:translateY(24px); transition:opacity .5s, transform .5s; }
+  .tip.in{ opacity:1; transform:none; }
+  .tip .k{ font-family:var(--pix); color:#ffd24a; font-size:12px; letter-spacing:2px; text-shadow:0 0 8px rgba(255,210,74,.4); }
+  .tip p{ color:var(--dim); font-size:13px; margin-top:6px; }
 
-  #rotate{
-    position:fixed; inset:0; z-index:40; background:#000;
-    display:none; flex-direction:column; align-items:center; justify-content:center; gap:20px;
-    text-align:center; padding:8vw;
-  }
-  #rotate .ico{ font-size:48px; text-shadow:var(--glow); animation:spin 2.4s ease-in-out infinite; }
-  #rotate .txt{ font-size:clamp(10px,4vw,16px); letter-spacing:2px; text-shadow:var(--glow); line-height:1.8; }
-  @keyframes spin{ 0%,100%{transform:rotate(0);} 50%{transform:rotate(90deg);} }
-  @media (orientation:portrait){ #rotate{ display:flex; } }
+  /* ---------- footer ---------- */
+  footer{ text-align:center; padding:70px 5vw 90px; border-top:2px solid var(--line); }
+  footer .fine{ color:var(--dim2); font-size:12px; margin-top:22px; }
+  footer a.src{ color:var(--dim); }
 
-  @media (max-height:520px){
-    .overlay{ gap:8px; padding:12px 4vw; }
-    .title{ font-size:clamp(13px,5vh,20px); margin-top:2px; }
-    .subtitle{ font-size:clamp(7px,2.2vh,10px); line-height:1.4; }
-    .btn{ padding:8px 5px; font-size:clamp(8px,2.6vh,12px); }
-    #startBtns{ grid-template-columns:1fr 1fr 1fr; }
-    .srow{ padding:7px 10px; gap:5px; }
-    .settings-box{ gap:6px; }
+  /* ---------- modal (lesson detail) ---------- */
+  #modal{ position:fixed; inset:0; z-index:80; display:none; background:rgba(0,0,0,.96);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #modal.open{ display:block; }
+  #modal .inner{ width:min(860px,94vw); margin:0 auto; padding:70px 0 90px; animation:tvon .45s cubic-bezier(.1,.5,.2,1); }
+  @keyframes tvon{ 0%{transform:scaleY(.005);filter:brightness(9);opacity:.6;} 45%{transform:scaleY(.03);} 100%{transform:scaleY(1);filter:none;opacity:1;} }
+  #modal .close{ position:fixed; top:14px; right:16px; z-index:5; width:46px; height:46px; border:2px solid #fff; background:#000;
+    color:#fff; font-size:22px; cursor:pointer; box-shadow:var(--glow); }
+  #modal .close:hover{ background:#fff; color:#000; }
+  .m-kick{ font-family:var(--pix); color:var(--dim2); letter-spacing:3px; font-size:12px; }
+  .m-title{ font-family:var(--pix); font-size:clamp(20px,5vw,38px); text-shadow:var(--glow); margin:6px 0 4px; }
+  .block{ margin-top:26px; }
+  .block > .h{ font-family:var(--pix); font-size:14px; color:#fff; text-shadow:0 0 6px rgba(255,255,255,.35);
+    border-left:3px solid #fff; padding-left:10px; margin-bottom:10px; }
+  .block p, .block li{ color:#cfcfcf; font-size:14px; }
+  .block .muted{ color:var(--dim); }
+  .games{ display:flex; flex-wrap:wrap; gap:8px; }
+  .game{ border:1px solid var(--line); padding:5px 10px; font-size:12px; color:#ddd; }
+  .analogy{ border:2px solid var(--line); padding:14px 16px; background:linear-gradient(180deg, rgba(255,255,255,.03), transparent); }
+  .analogy .em{ color:#fff; }
+
+  pre{ background:#0a0a0a; border:1px solid var(--line); border-left:3px solid #4f8; padding:14px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.6; position:relative; }
+  pre code{ color:#e6e6e6; white-space:pre; }
+  .cs-c{ color:#6a9955; } /* comments */
+  .cs-k{ color:#569cd6; } /* keywords */
+  .cs-t{ color:#4ec9b0; } /* types */
+  .cs-n{ color:#b5cea8; } /* numbers */
+  .copy{ position:absolute; top:8px; right:8px; font-family:var(--pix); font-size:10px; letter-spacing:1px;
+    background:#000; border:1px solid #555; color:#ccc; padding:5px 9px; cursor:pointer; }
+  .copy:hover{ background:#fff; color:#000; }
+
+  .m-actions{ position:sticky; bottom:0; margin-top:34px; padding:16px 0; background:linear-gradient(0deg,#000 60%,transparent); display:flex; gap:12px; flex-wrap:wrap; }
+
+  /* reaction widget */
+  .react{ border:2px solid var(--line); padding:16px; text-align:center; }
+  .react .pad{ height:120px; display:flex; align-items:center; justify-content:center; border:2px solid #555;
+    font-family:var(--pix); font-size:14px; color:#888; cursor:pointer; user-select:none; transition:background .05s; }
+  .react .pad.armed{ background:#111; color:#aaa; }
+  .react .pad.go{ background:#fff; color:#000; box-shadow:0 0 24px #fff; }
+  .react .res{ font-family:var(--pix); font-size:13px; margin-top:10px; color:var(--dim); min-height:1.4em; }
+
+  @media (max-width:600px){
+    section{ padding:44px 0; }
+    .card{ gap:12px; padding:14px; }
   }
 </style>
 </head>
 <body>
+<div id="scan"></div>
 
-<canvas id="game"></canvas>
+<header class="hero">
+  <div class="tag">// GAME FEEL LAB — UNITY</div>
+  <h1>ОЩУЩЕНИЕ<br>ИГРЫ<span class="blink">_</span></h1>
+  <p class="sub">Механики, которые незаметно делают управление приятным. Разбираем каждую: аналогии из жизни, примеры из хитов, объяснение и <b style="color:#fff">код на C# для Unity</b> — а потом сразу тестируем в браузере.</p>
+  <a href="#learn" class="btn">▶ НАЧАТЬ ОБУЧЕНИЕ</a>
+  <div class="scrolldown">▼ ЛИСТАЙ ВНИЗ</div>
+</header>
 
-<button id="closeBtn" aria-label="закрыть">&#10005;</button>
+<section class="wrap">
+  <div class="kicker">// ГЛАВА 0</div>
+  <h2 class="title">Что такое «game feel»?</h2>
+  <p class="lead">Игра может быть с одинаковыми правилами, но ощущаться либо «деревянной», либо «сочной». Разницу дают десятки маленьких, почти невидимых механик: прыжок, который прощает ошибку на долю секунды; падение, которое чуть тяжелее взлёта; камера, которая смотрит вперёд. По отдельности — мелочь. Вместе — то, за что игры любят.</p>
+  <div class="grid3">
+    <div class="mini"><h4>👁 Незаметно</h4><p>Хорошая механика не бросается в глаза — её просто <b style="color:#fff">чувствуешь</b>. Игрок думает «удобно», не зная почему.</p></div>
+    <div class="mini"><h4>🎮 Твой движок — Unity</h4><p>Весь код здесь — на C# под Unity (2D, Rigidbody2D). Копируешь, вешаешь на игрока, крутишь значения.</p></div>
+    <div class="mini"><h4>🧪 Учись → тестируй</h4><p>После каждого урока — кнопка «Протестировать»: попадаешь в песочницу именно этой механики.</p></div>
+  </div>
+</section>
 
-<div id="pad">
-  <button class="ctrl" id="btnLeft" aria-label="влево">&#9664;</button>
-  <button class="ctrl" id="btnRight" aria-label="вправо">&#9654;</button>
-</div>
-<button id="btnAttack">УДАР</button>
+<section class="wrap" id="learn">
+  <div class="kicker">// ПУТЬ ОБУЧЕНИЯ · ОТ ПРОСТОГО К СЛОЖНОМУ</div>
+  <h2 class="title">Механики</h2>
+  <div class="progwrap">
+    <div class="progbar"><div class="progfill" id="progfill"></div></div>
+    <div class="progtxt" id="progtxt">0 / 0</div>
+  </div>
+  <div class="path" id="path"></div>
+</section>
 
-<div class="hint" id="hint">&#9664; &#9654; = ХОДЬБА&nbsp;&nbsp;•&nbsp;&nbsp;ТАП СПРАВА = ПРЫЖОК&nbsp;&nbsp;•&nbsp;&nbsp;3 ПАЛЬЦА / M = МЕНЮ</div>
+<footer>
+  <div class="kicker">// ПЕСОЧНИЦА</div>
+  <h2 class="title" style="border:none">Хочешь всё сразу?</h2>
+  <p class="lead" style="margin:0 auto 26px">Сайт устроен как постепенное обучение — механики открываются по очереди. Но если хочется просто поиграть со всеми сразу, вот полный тест со всеми режимами:</p>
+  <a href="play.html" class="btn big">⛶ ОТКРЫТЬ ПОЛНЫЙ ТЕСТ</a>
+  <div class="fine">
+    Сделано в стиле старого ЭЛТ. Код механик — под Unity (C#).<br>
+    Дизайн-навыки: <a class="src" href="https://github.com/nextlevelbuilder/ui-ux-pro-max-skill">ui-ux-pro-max</a>. Обучение — в процессе, будут ещё главы.
+  </div>
+</footer>
 
-<div id="rotate">
-  <div class="ico">&#128241;</div>
-  <div class="txt">ПОВЕРНИ ТЕЛЕФОН<br>ГОРИЗОНТАЛЬНО</div>
-</div>
-
-<!-- START MENU -->
-<div class="overlay" id="startMenu">
-  <div class="title">МЕХАНИКИ</div>
-  <div class="subtitle">ВЫБЕРИ МЕХАНИКУ</div>
-  <div id="startBtns"></div>
-</div>
-
-<!-- SETTINGS MENU -->
-<div class="overlay hidden" id="settingsMenu">
-  <div class="title" style="font-size:clamp(12px,4vw,24px)">НАСТРОЙКИ</div>
-  <div class="subtitle" id="settingsMode">РЕЖИМ: ВСЁ</div>
-  <div id="miniModes"></div>
-  <div class="settings-box" id="settingsBox"></div>
-  <div class="btns"><button class="btn" id="resumeBtn">ПРОДОЛЖИТЬ</button></div>
+<!-- lesson detail modal -->
+<div id="modal" role="dialog" aria-modal="true">
+  <button class="close" id="mClose" aria-label="закрыть">✕</button>
+  <div class="inner" id="mInner"></div>
 </div>
 
 <script>
 "use strict";
 (function(){
-  const canvas = document.getElementById('game');
-  const vctx = canvas.getContext('2d');
-  const buf = document.createElement('canvas');
-  const ctx = buf.getContext('2d');
-  let W=0, H=0, DPR=1;
-  const RS=1.8;
-  const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // very light C# highlighter for display only
+  function hl(code){
+    let s=esc(code);
+    s=s.replace(/(\/\/[^\n]*)/g,'<span class="cs-c">$1</span>');
+    s=s.replace(/\b(public|private|void|float|int|bool|new|if|else|return|class|using|get|set|static|out|Mathf|true|false)\b/g,'<span class="cs-k">$1</span>');
+    s=s.replace(/\b(Rigidbody2D|Vector2|Vector3|Collider2D|Transform|MonoBehaviour|Physics2D|LayerMask|Bounds|RigidbodyType2D|Time|Input)\b/g,'<span class="cs-t">$1</span>');
+    return s;
+  }
 
-  /* ================= params ================= */
-  const params = {
-    jumpMaxHold:0.28, jumpPhysics:false, coyoteTime:0.12, bufferTime:0.15, hitboxForgive:0.6,
-    fallMul:1.9, apexGrav:0.45, fallCap:34, airJumps:1, cornerFix:0.5, accelK:8.5, skidBoost:1.0,
-    wallSlide:8, shakeAmt:1.0, attackR:2.0, hitstop:0.08, lookAhead:0.18, camSmooth:5, camDeadzone:0.14
-  };
-  const PDEF = {
-    jumpMaxHold:{label:'УДЕРЖАНИЕ ПРЫЖКА',min:0.06,max:0.5,step:0.01},
-    coyoteTime:{label:'ВРЕМЯ КОЙОТА',min:0,max:0.4,step:0.01},
-    bufferTime:{label:'БУФЕР ВВОДА',min:0,max:0.4,step:0.01},
-    hitboxForgive:{label:'ПРОЩЕНИЕ КРАЯ',min:0,max:1.5,step:0.05},
-    fallMul:{label:'СИЛА БЫСТРОГО ПАДЕНИЯ',min:1,max:3,step:0.1},
-    apexGrav:{label:'ЗАВИСАНИЕ НА ПИКЕ',min:0.2,max:1,step:0.05},
-    fallCap:{label:'ПРЕДЕЛ СКОРОСТИ',min:18,max:60,step:1},
-    airJumps:{label:'ПРЫЖКИ В ВОЗДУХЕ',min:1,max:3,step:1,int:true},
-    cornerFix:{label:'КОРРЕКЦИЯ УГЛА',min:0,max:1.2,step:0.05},
-    accelK:{label:'РАЗГОН',min:3,max:20,step:0.5},
-    skidBoost:{label:'СИЛА ЗАНОСА',min:0,max:2.5,step:0.1},
-    wallSlide:{label:'СПОЛЗАНИЕ ПО СТЕНЕ',min:2,max:22,step:1},
-    shakeAmt:{label:'СИЛА ТРЯСКИ',min:0,max:2.5,step:0.1},
-    attackR:{label:'РАДИУС УДАРА',min:1,max:4,step:0.1},
-    hitstop:{label:'ЗАМОРОЗКА УДАРА',min:0,max:0.25,step:0.01},
-    lookAhead:{label:'УПРЕЖДЕНИЕ КАМЕРЫ',min:0,max:0.45,step:0.02},
-    camSmooth:{label:'ПЛАВНОСТЬ КАМЕРЫ',min:1,max:12,step:0.5},
-    camDeadzone:{label:'ЗОНА КАМЕРЫ',min:0,max:0.4,step:0.02}
-  };
+  /* ===== curriculum: easy -> hard ===== */
+  const items = [
+    { type:'lesson', id:'vary', title:'Переменная высота прыжка', diff:1,
+      teaser:'Держишь кнопку дольше — прыжок выше. Отпустил рано — короткий подскок.',
+      analogy:'Как со скакалкой или батутом: чем дольше «толкаешься», тем выше улетаешь. Резко подожал ноги — прыжок ниже.',
+      life:'Ты сам дозируешь усилие постоянно: чуть подтолкнуть дверь или распахнуть настежь. Мозг ждёт, что «сильнее нажал = сильнее эффект».',
+      games:['Super Mario Bros.','Celeste','Hollow Knight','Meat Boy'],
+      how:'Прыжок задаёт скорость вверх. Пока игрок держит кнопку и летит вверх — не мешаем. Как только отпустил — обрезаем вертикальную скорость, и дуга прыжка становится короче. Один прыжок — целый диапазон высот.',
+      cs:`// Переменная высота прыжка (2D, Rigidbody2D)
+public class VariableJump : MonoBehaviour {
+    public float jumpForce = 12f;      // сила прыжка
+    public float cutMultiplier = 0.5f; // насколько гасим прыжок при отпускании
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
 
-  /* ================= modes ================= */
-  function mk(label,s,f){ return Object.assign({
-    vary:false,coyote:false,buffer:false,hitbox:false,pit:false,
-    fastfall:false,apex:false,fallcap:false,djump:false,corner:false,accel:false,skid:false,
-    ledge:false,wall:false,slope:false,squash:false,dust:false,shake:false,combat:false,
-    camlook:false,camlerp:false,label,short:s},f); }
-  const MODES = {
-    vary:    mk('ВЫСОТА ПРЫЖКА','ПРЫЖОК',{vary:true}),
-    coyote:  mk('ВРЕМЯ КОЙОТА','КОЙОТ',{coyote:true,pit:true}),
-    buffer:  mk('БУФЕР ВВОДА','БУФЕР',{buffer:true}),
-    hitbox:  mk('ПРОЩАЮЩИЕ ХИТБОКСЫ','ХИТБОКС',{hitbox:true,pit:true}),
-    fastfall:mk('БЫСТРОЕ ПАДЕНИЕ','ПАДЕНИЕ',{fastfall:true}),
-    apex:    mk('ЗАВИСАНИЕ НА ПИКЕ','ПИК',{apex:true}),
-    fallcap: mk('ПРЕДЕЛ ПАДЕНИЯ','ПРЕДЕЛ',{fastfall:false,fallcap:true}),
-    djump:   mk('ДВОЙНОЙ ПРЫЖОК','2 ПРЫЖОК',{djump:true,pit:true}),
-    corner:  mk('КОРРЕКЦИЯ УГЛА','УГОЛ',{corner:true}),
-    accel:   mk('РАЗГОН И ТОРМОЖЕНИЕ','РАЗГОН',{accel:true}),
-    skid:    mk('ЗАНОС','ЗАНОС',{skid:true}),
-    ledge:   mk('ЗАЦЕП ЗА КРАЙ','ЗАЦЕП',{ledge:true}),
-    wall:    mk('ПРЫЖОК ОТ СТЕНЫ','СТЕНА',{wall:true}),
-    slope:   mk('ЛИПКИЕ НОГИ','СКЛОН',{slope:true}),
-    squash:  mk('СЖАТИЕ И РАСТЯЖЕНИЕ','СЖАТИЕ',{squash:true}),
-    dust:    mk('ПЫЛЬ ПРИ ПОСАДКЕ','ПЫЛЬ',{dust:true}),
-    shake:   mk('ТРЯСКА ЭКРАНА','ТРЯСКА',{shake:true}),
-    combat:  mk('УДАР ПО ВРАГУ','УДАР',{combat:true}),
-    camlook: mk('КАМЕРА: УПРЕЖДЕНИЕ','КАМ.УПР',{camlook:true}),
-    camlerp: mk('КАМЕРА: ПЛАВНАЯ','КАМ.ПЛ',{camlerp:true}),
-    all:     mk('ИЗБРАННЫЕ','ИЗБР',{vary:true,coyote:true,buffer:true,hitbox:true,pit:true})
-  };
-  const MODE_ORDER = ['vary','coyote','buffer','hitbox','all','fastfall','apex','fallcap','djump','corner',
-    'accel','ledge','wall','squash','dust','combat','camlook','camlerp'];
-  const MODE_PARAMS = {
-    vary:['jumpMaxHold','physics'], coyote:['coyoteTime'], buffer:['bufferTime'], hitbox:['hitboxForgive'],
-    fastfall:['fallMul'], apex:['apexGrav'], fallcap:['fallCap'], djump:['airJumps'], corner:['cornerFix'],
-    accel:['accelK'], ledge:[], wall:['wallSlide'], slope:[], squash:[], dust:[],
-    combat:['attackR','hitstop'], camlook:['lookAhead','camDeadzone','camSmooth'], camlerp:['camDeadzone','camSmooth'],
-    all:['jumpMaxHold','physics','coyoteTime','bufferTime','hitboxForgive']
-  };
-  let mode='all';
-  const M=()=>MODES[mode];
+    void Update() {
+        // Прыжок по нажатию (проверку земли для краткости опускаем)
+        if (Input.GetButtonDown("Jump"))
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
 
-  /* ================= world ================= */
-  let tile=24, groundY=0, bottomY=0, worldW=0, worldH=0;
-  let solids=[], tops=[], ramps=[], marks=[], pit=null, enemy=null;
-  let camFollowX=false, camFollowY=false;
-  let cam={x:0,y:0}, shakeT=0, shakeMag=0, particles=[], hitstop=0;
-
-  const cube = {
-    x:0,y:0,vx:0,vy:0,size:24,grounded:true,jumping:false,holding:false,holdTime:0,
-    coyoteLeft:0,leftBy:'ground',airTime:0,bufferLeft:0,bufferTracking:false,varyTracking:false,
-    timer:0,timerFrozen:false,landedForgiven:0,airJumps:0,hanging:false,wallSide:0,
-    sqx:1,sqy:1,attackT:0,landImpact:0,facing:1,wallLock:0,hang:null,atk:null,grabLock:0,trail:[]
-  };
-
-  const moveSpeed=()=>tile*7.5;
-  const gravity=()=>tile*72;
-  const jumpVel=()=>-tile*22;
-
-  function flat(x0,x1,y){ solids.push({x:x0,y:y,w:x1-x0,h:bottomY-y}); tops.push({x0:x0,x1:x1,y:y}); }
-
-  function buildLevel(keepPos){
-    tile=Math.round(clamp(H*0.052,14,26)); cube.size=tile;
-    const gy=Math.round(H*0.66);
-    worldW=W; worldH=H; groundY=gy; bottomY=H+tile*10;
-    solids=[]; tops=[]; ramps=[]; marks=[]; pit=null; enemy=null;
-    camFollowX=false; camFollowY=false;
-    let sx=Math.round(W*0.30), sy=gy-cube.size;
-    const m=M();
-
-    if(m.pit){
-      const wide=m.djump;
-      const p0=Math.round(W*0.42), p1=Math.round(W*(wide?0.68:0.58));
-      const pf=Math.round(clamp(gy+tile*2.6,gy+tile*2,H*0.9));
-      solids.push({x:0,y:gy,w:p0,h:bottomY-gy});
-      solids.push({x:p1,y:gy,w:W-p1,h:bottomY-gy});
-      solids.push({x:p0,y:pf,w:p1-p0,h:bottomY-pf});
-      tops.push({x0:0,x1:p0,y:gy}); tops.push({x0:p1,x1:W,y:gy}); tops.push({x0:p0,x1:p1,y:pf});
-      pit={x0:p0,x1:p1,floorY:pf}; sx=Math.round(W*0.16);
-    } else if(m.fallcap){
-      worldH=Math.round(H*2.4); bottomY=worldH+tile*10; camFollowY=true;
-      const topY=Math.round(H*0.42);
-      flat(0,Math.round(W*0.5),topY);
-      const fy=Math.round(worldH*0.86); groundY=fy; flat(0,W,fy);
-      sx=Math.round(W*0.16); sy=topY-cube.size;
-    } else if(m.corner){
-      flat(0,W,gy);
-      const cyTop=Math.round(gy-tile*2.8), g0=Math.round(W*0.46), g1=Math.round(W*0.54);
-      solids.push({x:0,y:0,w:g0,h:cyTop});
-      solids.push({x:g1,y:0,w:W-g1,h:cyTop});
-      sx=Math.round(W*0.30);
-    } else if(m.wall){
-      worldH=Math.round(H*2.2); bottomY=worldH+tile*10; camFollowY=true;
-      const fy=Math.round(worldH*0.86); groundY=fy; flat(0,W,fy);
-      const lw=Math.round(W*0.42), rw=Math.round(W*0.58);
-      solids.push({x:0,y:0,w:lw,h:fy});
-      solids.push({x:rw,y:0,w:W-rw,h:fy});
-      sx=Math.round((lw+rw)/2-cube.size/2); sy=fy-cube.size;
-    } else if(m.slope){
-      const rx0=Math.round(W*0.34), rx1=Math.round(W*0.62), yHigh=gy-tile*3;
-      flat(0,rx0,gy); flat(rx1,W,yHigh);
-      ramps.push({x0:rx0,x1:rx1,y0:gy,y1:yHigh});
-      sx=Math.round(W*0.15);
-    } else if(m.ledge){
-      flat(0,W,gy);
-      const bx0=Math.round(W*0.52), bx1=Math.round(W*0.74), by=gy-tile*4;
-      solids.push({x:bx0,y:by,w:bx1-bx0,h:gy-by}); tops.push({x0:bx0,x1:bx1,y:by});
-      sx=Math.round(W*0.2);
-    } else if(m.combat){
-      flat(0,W,gy);
-      enemy={x:Math.round(W*0.7),y:gy-tile,size:tile,alive:true,deadT:0,flash:0};
-      sx=Math.round(W*0.25);
-    } else if(m.camlook||m.camlerp||m.accel||m.skid){
-      worldW=Math.round(W*2.8); camFollowX=true;
-      flat(0,worldW,gy);
-      for(let i=1;i<12;i++) marks.push(Math.round(worldW*i/12));
-      sx=Math.round(W*0.3);
-    } else {
-      flat(0,W,gy);
+        // Отпустили кнопку, пока летим ВВЕРХ — гасим часть скорости => прыжок ниже
+        if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f)
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * cutMultiplier);
     }
+}` },
 
-    if(!keepPos){ cube.x=sx; cube.y=sy; }
-    cube.x=clamp(cube.x,0,worldW-cube.size);
-    cube.y=clamp(cube.y,-tile,worldH-cube.size);
-    cube.vx=0; cube.vy=0; cube.grounded=false; cube.jumping=false; cube.leftBy='ground';
-    cube.timer=0; cube.timerFrozen=false; cube.bufferTracking=false; cube.varyTracking=false;
-    cube.hanging=false; cube.wallSide=0; cube.airJumps=m.djump?params.airJumps:0;
-    cube.sqx=1; cube.sqy=1; cube.attackT=0; cube.trail=[];
-    cube.facing=1; cube.wallLock=0; cube.hang=null; cube.atk=null; cube.grabLock=0;
-    cam={x:0,y:0}; shakeT=0; shakeMag=0; particles=[]; hitstop=0;
-  }
+    { type:'lesson', id:'fastfall', title:'Быстрое падение', diff:1,
+      teaser:'Падение тяжелее взлёта — прыжок ощущается «живым», а не парашютным.',
+      analogy:'Мяч подлетает вверх плавно, а вниз рушится быстрее — так и должно «читаться» тело в игре.',
+      life:'Подпрыгнул сам: наверх идёшь легко, а вниз земля «притягивает» ощутимо резче. Наш мозг ждёт именно этого.',
+      games:['Super Mario','Celeste','Hollow Knight'],
+      how:'При взлёте оставляем обычную гравитацию, а при падении добавляем «лишнюю». Игрок дольше висит на подъёме (успевает прицелиться) и быстро приземляется (не скучно ждать).',
+      cs:`// Быстрое падение: при падении гравитация сильнее, чем при взлёте
+public class FastFall : MonoBehaviour {
+    public float fallMultiplier = 2.2f; // множитель гравитации при падении
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
 
-  function resize(){
-    DPR=Math.min(window.devicePixelRatio||1,2.5);
-    W=window.innerWidth; H=window.innerHeight;
-    const pw=Math.floor(W*DPR), ph=Math.floor(H*DPR);
-    canvas.width=pw; canvas.height=ph; canvas.style.width=W+'px'; canvas.style.height=H+'px';
-    buf.width=Math.floor(pw*RS); buf.height=Math.floor(ph*RS);
-    ctx.setTransform(DPR*RS,0,0,DPR*RS,0,0);
-    vctx.setTransform(1,0,0,1,0,0);
-    buildLevel(true);
-  }
-  window.addEventListener('resize',resize);
-  window.addEventListener('orientationchange',()=>setTimeout(resize,200));
-
-  /* ================= collision ================= */
-  const overlap=(ax,ay,aw,ah,bx,by,bw,bh)=> ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by;
-
-  function resolveHorizontal(){
-    const c=cube;
-    for(const s of solids){
-      if(overlap(c.x,c.y,c.size,c.size,s.x,s.y,s.w,s.h)){
-        if(c.vx>0) c.x=s.x-c.size; else if(c.vx<0) c.x=s.x+s.w;
-        c.vx=0;
-      }
+    void FixedUpdate() {
+        // rb.velocity.y < 0 — значит падаем: добавляем "лишнюю" гравитацию
+        if (rb.velocity.y < 0f)
+            rb.velocity += Vector2.up * Physics2D.gravity.y
+                         * (fallMultiplier - 1f) * Time.fixedDeltaTime;
     }
-  }
-  function resolveVertical(prevBottom){
-    const c=cube; c.grounded=false; c.landedForgiven=0;
-    if(c.vy>=0){
-      const nb=c.y+c.size, pad=M().hitbox?params.hitboxForgive*tile:0;
-      let ly=null, surf=null;
-      for(const t of tops){
-        const horiz=(c.x+c.size>t.x0-pad)&&(c.x<t.x1+pad);
-        if(horiz && prevBottom<=t.y+1 && nb>=t.y){ if(ly===null||t.y<ly){ ly=t.y; surf=t; } }
-      }
-      if(ly!==null){
-        c.landImpact=c.vy; c.y=ly-c.size; c.vy=0; c.grounded=true;
-        let over=0;
-        if(c.x<surf.x0) over=surf.x0-c.x; else if(c.x+c.size>surf.x1) over=(c.x+c.size)-surf.x1;
-        c.landedForgiven=pad>0?Math.min(over,pad)/tile:0;
-      }
-    } else {
-      for(const s of solids){
-        if(overlap(c.x,c.y,c.size,c.size,s.x,s.y,s.w,s.h)){
-          // corner correction: small horizontal overlap near an edge -> nudge past
-          if(M().corner){
-            const cfx=params.cornerFix*tile;
-            const leftPen=(s.x+s.w)-c.x, rightPen=(c.x+c.size)-s.x;
-            if(rightPen>0 && rightPen<=cfx){ c.x-=rightPen; continue; }
-            if(leftPen>0 && leftPen<=cfx){ c.x+=leftPen; continue; }
-          }
-          c.y=s.y+s.h; c.vy=0;
+}` },
+
+    { type:'tip', k:'🎮 ГЕЙМДЕВ · 1',
+      text:'Физику двигай в <b style="color:#fff">FixedUpdate()</b>, а ввод читай в <b style="color:#fff">Update()</b>. Update зависит от FPS, FixedUpdate идёт с фиксированным шагом — иначе на разных компьютерах прыжок будет разной высоты.' },
+
+    { type:'lesson', id:'djump', title:'Двойной прыжок', diff:2,
+      teaser:'Ещё один прыжок в воздухе. Простая механика — большой прирост свободы.',
+      analogy:'Как «второе дыхание»: кажется, что возможность уже кончилась — а у тебя есть ещё один рывок.',
+      life:'Запасной шанс: не успел на автобус шагом — ускорился и всё-таки заскочил. Второй прыжок — это про «ещё один шанс».',
+      games:['Ori and the Blind Forest','Hollow Knight','Rayman'],
+      how:'Считаем оставшиеся воздушные прыжки. На земле счётчик сбрасывается. В воздухе, если счётчик > 0, разрешаем прыгнуть и уменьшаем его.',
+      cs:`// Двойной (или множественный) прыжок
+public class DoubleJump : MonoBehaviour {
+    public float jumpForce = 12f;
+    public int maxAirJumps = 1;   // сколько раз можно прыгнуть в воздухе
+    int airJumps;
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
+
+    void Update() {
+        if (IsGrounded()) airJumps = maxAirJumps; // на земле сбрасываем счётчик
+
+        if (Input.GetButtonDown("Jump") && (IsGrounded() || airJumps > 0)) {
+            if (!IsGrounded()) airJumps--;        // тратим воздушный прыжок
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
         }
+    }
+    bool IsGrounded() { /* ваша проверка земли */ return false; }
+}` },
+
+    { type:'lesson', id:'coyote', title:'Время койота', diff:2, interactive:'react',
+      teaser:'Можно прыгнуть ещё доли секунды ПОСЛЕ того, как сошёл с края.',
+      analogy:'Койот из мультика: уже пробежал обрыв, но падает не сразу. Игроку даём такое же крошечное «а вдруг».',
+      life:'Реакция человека — не мгновенная (~0.2 сек). Ты жмёшь «прыжок» ровно когда думаешь, что ещё на краю, но по факту уже сошёл. Койот-тайм прощает именно эту задержку восприятия — попробуй тест ниже.',
+      games:['Celeste','Super Meat Boy','Hollow Knight'],
+      how:'Держим таймер. Пока на земле — постоянно ставим его на максимум. Сошли с платформы — таймер тикает вниз. Прыжок разрешён, пока таймер > 0, даже если под ногами уже пусто.',
+      cs:`// Время койота: прыжок разрешён ещё чуть-чуть после схода с края
+public class CoyoteTime : MonoBehaviour {
+    public float jumpForce = 12f;
+    public float coyoteTime = 0.12f;  // окно "прощения" в секундах
+    float coyoteCounter;
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
+
+    void Update() {
+        // На земле держим таймер полным, в воздухе — уменьшаем
+        if (IsGrounded()) coyoteCounter = coyoteTime;
+        else coyoteCounter -= Time.deltaTime;
+
+        // Прыжок можно, пока таймер не истёк (даже если уже не на земле)
+        if (Input.GetButtonDown("Jump") && coyoteCounter > 0f) {
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+            coyoteCounter = 0f; // чтобы не сработало дважды
+        }
+    }
+    bool IsGrounded() { return false; }
+}` },
+
+    { type:'lesson', id:'buffer', title:'Буфер ввода', diff:2,
+      teaser:'Нажал прыжок чуть раньше приземления — игра запомнит и прыгнет при касании.',
+      analogy:'Как «дожать» кнопку лифта заранее: ты уже нажал, система запомнила и выполнит, как только сможет.',
+      life:'Ты часто действуешь на опережение: тянешься к ручке двери ещё на подходе. Буфер прощает это «чуть раньше».',
+      games:['Celeste','Street Fighter (комбо-буфер)','Hollow Knight'],
+      how:'При нажатии запускаем короткий таймер «запомненного» нажатия. Когда касаемся земли и таймер ещё жив — сразу прыгаем. Игрок может жать прыжок заранее и не терять его.',
+      cs:`// Буфер ввода: раннее нажатие прыжка помнится короткое время
+public class JumpBuffer : MonoBehaviour {
+    public float jumpForce = 12f;
+    public float bufferTime = 0.15f;  // сколько помним раннее нажатие
+    float bufferCounter;
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
+
+    void Update() {
+        // Запоминаем момент нажатия
+        if (Input.GetButtonDown("Jump")) bufferCounter = bufferTime;
+        else bufferCounter -= Time.deltaTime;
+
+        // Есть "запомненное" нажатие и мы коснулись земли — прыгаем
+        if (bufferCounter > 0f && IsGrounded()) {
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+            bufferCounter = 0f;
+        }
+    }
+    bool IsGrounded() { return false; }
+}` },
+
+    { type:'tip', k:'🎮 ГЕЙМДЕВ · 2',
+      text:'Койот-тайм и буфер почти ничего не «дают» механически, но резко снижают ощущение «игра меня обманула». Правило: <b style="color:#fff">если игрок уверен, что нажал вовремя — чаще всего он прав</b>. Прощай ему доли секунды.' },
+
+    { type:'lesson', id:'apex', title:'Зависание на пике', diff:3,
+      teaser:'На вершине прыжка гравитация слабее — момент «зависания» и лучший контроль.',
+      analogy:'Прыжок баскетболиста будто «замирает» в высшей точке — на самом деле там просто минимальная вертикальная скорость.',
+      life:'Подкинь что-то вверх: у самой верхней точки предмет двигается медленнее всего. Игры это подчёркивают специально.',
+      games:['Super Mario','Celeste','Ori'],
+      how:'Когда вертикальная скорость близка к нулю (вершина дуги), временно ослабляем гравитацию. Игрок получает чуть больше времени, чтобы прицелиться и подрулить в полёте.',
+      cs:`// Зависание на пике: у вершины прыжка гравитация меньше
+public class ApexHang : MonoBehaviour {
+    public float apexThreshold = 2f;    // порог |скорости Y|, ниже — считаем "пик"
+    public float apexGravityMult = 0.5f;
+    Rigidbody2D rb;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); }
+
+    void FixedUpdate() {
+        // Возле вершины (скорость почти нулевая) ослабляем гравитацию
+        if (Mathf.Abs(rb.velocity.y) < apexThreshold)
+            rb.velocity += Vector2.up * Physics2D.gravity.y
+                         * (apexGravityMult - 1f) * Time.fixedDeltaTime;
+    }
+}` },
+
+    { type:'lesson', id:'hitbox', title:'Прощающие хитбоксы', diff:3,
+      teaser:'Приземление на самый край платформы засчитывается, даже если чуть промахнулся.',
+      analogy:'Как «доводчик» в баскетбольном кольце: мяч на грани — а всё равно падает внутрь.',
+      life:'Ступенька: ставишь ногу «на глаз» на край, чуть не попал — но всё равно устоял. Игра добавляет такой же запас.',
+      games:['Celeste','Super Meat Boy','Donkey Kong Country'],
+      how:'При проверке «стою ли я на земле» берём зону чуть шире коллайдера. Если игрок навис над краем в пределах допуска — считаем, что приземлился. Края становятся «липкими» в хорошем смысле.',
+      cs:`// Прощающие хитбоксы: приземление на край прощается
+public class ForgivingLanding : MonoBehaviour {
+    public float forgive = 0.25f;   // допуск по краю (в юнитах)
+    public LayerMask groundLayer;
+    Collider2D col;
+    void Awake() { col = GetComponent<Collider2D>(); }
+
+    bool IsGroundedForgiving() {
+        Bounds b = col.bounds;
+        // Расширяем зону проверки по X на forgive с каждой стороны
+        Vector2 size = new Vector2(b.size.x + forgive * 2f, 0.12f);
+        Vector2 origin = new Vector2(b.center.x, b.min.y - 0.05f);
+        return Physics2D.OverlapBox(origin, size, 0f, groundLayer);
+    }
+}` },
+
+    { type:'lesson', id:'corner', title:'Коррекция угла', diff:4,
+      teaser:'Задел головой угол потолка — тебя мягко подтолкнёт мимо, а не остановит.',
+      analogy:'Как протискиваешься в дверной проём: чуть задел плечом косяк — доворачиваешься и проходишь, а не «залипаешь».',
+      life:'Пронести кружку в узкую дверь: слегка зацепил — микродвижением кисти обошёл. Игра делает это за игрока.',
+      games:['Super Mario Bros. 3','Celeste','Super Meat Boy'],
+      how:'В прыжке проверяем оба верхних угла игрока. Если задет только один (значит, рядом есть щель) — сдвигаем игрока в сторону свободного угла, чтобы он «проскользнул», а не потерял прыжок.',
+      cs:`// Коррекция угла: подталкиваем мимо угла потолка
+public class CornerCorrection : MonoBehaviour {
+    public float push = 0.2f;        // на сколько сдвигать
+    public LayerMask groundLayer;
+    Rigidbody2D rb; Collider2D col;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); col = GetComponent<Collider2D>(); }
+
+    void FixedUpdate() {
+        if (rb.velocity.y <= 0f) return;         // только когда летим вверх
+        Bounds b = col.bounds; float e = 0.02f;
+        bool left  = Physics2D.OverlapPoint(new Vector2(b.min.x, b.max.y + e), groundLayer);
+        bool right = Physics2D.OverlapPoint(new Vector2(b.max.x, b.max.y + e), groundLayer);
+
+        // Задет только один угол => рядом щель: сдвигаем в сторону свободного
+        if (left && !right)  rb.position += Vector2.right * push;
+        if (right && !left)  rb.position += Vector2.left  * push;
+    }
+}` },
+
+    { type:'tip', k:'🎮 ГЕЙМДЕВ · 3 · «СОК» (JUICE)',
+      text:'Поверх механик идёт «juice»: сжатие/растяжение при приземлении, пылинки, лёгкая тряска экрана, микро-пауза при ударе (hitstop). Механика решает <b style="color:#fff">как играется</b>, juice — <b style="color:#fff">как ощущается удар</b>. Добавляй его последним слоем.' },
+
+    { type:'lesson', id:'wall', title:'Прыжок от стены', diff:4,
+      teaser:'Сползаешь по стене и отталкиваешься вверх-в сторону, чтобы забраться выше.',
+      analogy:'Паркур: упёрся в стену и оттолкнулся по диагонали — как в «прыжке между двумя стенами».',
+      life:'Застрял в узком проходе — упёрся руками в стены и «прошагал» вверх. Тело помнит: от опоры можно оттолкнуться.',
+      games:['Hollow Knight: Silksong','Celeste','Super Meat Boy','Ninja Gaiden'],
+      how:'Определяем, есть ли стена слева или справа. При прыжке от стены задаём скорость вверх И в сторону ОТ стены. Важно: толчок вверх должен быть сильным, а вбок — умеренным, иначе не забраться.',
+      cs:`// Прыжок от стены: вверх и в сторону ОТ стены
+public class WallJump : MonoBehaviour {
+    public float xForce = 8f, yForce = 15f; // отскок вбок и высота
+    public LayerMask wallLayer;
+    Rigidbody2D rb; Collider2D col;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); col = GetComponent<Collider2D>(); }
+
+    void Update() {
+        int wallDir = GetWallDir();            // -1 стена слева, +1 справа
+        if (Input.GetButtonDown("Jump") && wallDir != 0)
+            // Прыгаем вверх и В ПРОТИВОПОЛОЖНУЮ от стены сторону
+            rb.velocity = new Vector2(-wallDir * xForce, yForce);
+    }
+    int GetWallDir() {
+        Bounds b = col.bounds; float e = 0.05f;
+        if (Physics2D.OverlapPoint(new Vector2(b.min.x - e, b.center.y), wallLayer)) return -1;
+        if (Physics2D.OverlapPoint(new Vector2(b.max.x + e, b.center.y), wallLayer)) return  1;
+        return 0;
+    }
+}` },
+
+    { type:'lesson', id:'camlook', title:'Умная камера', diff:4,
+      teaser:'Мёртвая зона + упреждение по движению + плавность — камера не дёргается и смотрит вперёд.',
+      analogy:'Как оператор с камерой: не трясётся на каждый шаг героя, но заранее ведёт объектив туда, куда тот бежит.',
+      life:'Ведёшь взгляд за машиной на дороге: смотришь не строго на неё, а чуть вперёд — туда, где она будет.',
+      games:['Celeste','Ori','Hollow Knight','Super Mario World'],
+      how:'Мёртвая зона: пока игрок в центральном прямоугольнике — камера стоит (нет мелкой тряски). Упреждение: сдвигаем цель камеры в сторону скорости. Плавность: приближаемся к цели через Lerp, а не телепортом.',
+      cs:`// Умная камера: мёртвая зона + упреждение + плавность (в LateUpdate)
+public class SmartCamera : MonoBehaviour {
+    public Transform target;      // игрок
+    public float smooth = 6f;     // плавность
+    public float deadzone = 1.5f; // полуширина мёртвой зоны
+    public float lookAhead = 2.5f;// упреждение по скорости
+    Rigidbody2D targetRb;
+    void Start() { targetRb = target.GetComponent<Rigidbody2D>(); }
+
+    void LateUpdate() {
+        Vector3 pos = transform.position;
+        // Цель = позиция игрока + взгляд вперёд по направлению скорости
+        float aim = target.position.x + Mathf.Clamp(targetRb.velocity.x, -1f, 1f) * lookAhead;
+
+        // Двигаем, только когда цель вышла за мёртвую зону
+        if (aim > pos.x + deadzone)      pos.x = aim - deadzone;
+        else if (aim < pos.x - deadzone) pos.x = aim + deadzone;
+
+        // Плавно тянемся к цели (без рывков)
+        Vector3 goal = new Vector3(pos.x, target.position.y, pos.z);
+        transform.position = Vector3.Lerp(transform.position, goal, smooth * Time.deltaTime);
+    }
+}` },
+
+    { type:'lesson', id:'ledge', title:'Зацеп за край', diff:5,
+      teaser:'У края платформы игрок цепляется и висит; влево/вправо — отпустить, прыжок — хоп вверх.',
+      analogy:'Как повиснуть на турнике или на краю крыши: сначала фиксируешься, потом решаешь — подтянуться или спрыгнуть.',
+      life:'Ловишь себя за край стола, когда почти упал: рефлекс «зацепиться» спасает. Сложная в реализации, зато спасает от падений.',
+      games:['Prince of Persia','Assassin’s Creed','Hollow Knight'],
+      how:'Самая «капризная» механика: надо поймать момент падения у самого угла платформы, зафиксировать игрока (обнулить скорость, сделать тело кинематическим) и правильно обработать выход — отпускание и подтягивание. Много крайних случаев.',
+      cs:`// Зацеп за край: ловим падение у угла и "виснем"
+public class LedgeGrab : MonoBehaviour {
+    public LayerMask groundLayer;
+    Rigidbody2D rb; Collider2D col;
+    bool hanging;
+    void Awake() { rb = GetComponent<Rigidbody2D>(); col = GetComponent<Collider2D>(); }
+
+    void Update() {
+        // Ловим момент: падаем и рядом верхний угол платформы
+        if (!hanging && rb.velocity.y < 0f && DetectLedge(out Vector2 grabPos)) {
+            hanging = true;
+            rb.velocity = Vector2.zero;
+            rb.bodyType = RigidbodyType2D.Kinematic; // "приклеились": гравитация не тянет
+            rb.position = grabPos;
+        }
+
+        if (hanging) {
+            float h = Input.GetAxisRaw("Horizontal");
+            // Влево/вправо — отпускаем; прыжок — небольшой хоп вверх
+            if (Mathf.Abs(h) > 0.1f || Input.GetButtonDown("Jump")) {
+                rb.bodyType = RigidbodyType2D.Dynamic;
+                hanging = false;
+                if (Input.GetButtonDown("Jump")) rb.velocity = new Vector2(0f, 12f);
+            }
+        }
+    }
+    // Возвращает точку зацепа. Реализация зависит от геометрии уровня.
+    bool DetectLedge(out Vector2 pos) { pos = rb.position; return false; }
+}` }
+  ];
+
+  /* ===== progress / unlock ===== */
+  const done = id => { try{ return localStorage.getItem('gf_done_'+id)==='1'; }catch(_){ return false; } };
+  const setDone = id => { try{ localStorage.setItem('gf_done_'+id,'1'); }catch(_){ } };
+  const lessons = items.filter(x=>x.type==='lesson');
+
+  function unlockedIndex(){
+    // a lesson is unlocked if it's the first, or the previous lesson is done
+    let idx=0;
+    for(let i=0;i<lessons.length;i++){ if(i===0||done(lessons[i-1].id)) idx=i; else break; }
+    return idx;
+  }
+  function isUnlocked(id){
+    const i=lessons.findIndex(l=>l.id===id);
+    return i===0 || done(lessons[i-1].id) || done(id);
+  }
+
+  /* ===== render path ===== */
+  const path=document.getElementById('path');
+  function pips(d){ let s='<span class="pips">'; for(let i=1;i<=5;i++) s+='<span class="pip'+(i<=d?' on':'')+'"></span>'; return s+'</span>'; }
+  function render(){
+    path.innerHTML='';
+    let n=0;
+    for(const it of items){
+      if(it.type==='tip'){
+        const t=document.createElement('div'); t.className='tip reveal';
+        t.innerHTML='<div class="k">'+it.k+'</div><p>'+it.text+'</p>';
+        path.appendChild(t); continue;
       }
+      n++;
+      const unlocked=isUnlocked(it.id), isDone=done(it.id);
+      const c=document.createElement('div');
+      c.className='card reveal'+(unlocked?'':' locked')+(isDone?' done':'');
+      c.innerHTML='<div class="num">'+n+'</div>'+
+        '<div class="body"><h3>'+it.title+pips(it.diff)+'</h3><p>'+it.teaser+'</p></div>'+
+        '<div class="go">'+(unlocked?'▶':'')+'</div>';
+      c.addEventListener('click',()=>{ if(!unlocked){ nudge(c); return; } openLesson(it, n); });
+      path.appendChild(c);
     }
+    updateProgress();
+    observeReveal();
   }
-  function wallTouch(){
-    const c=cube;
-    for(const s of solids){
-      const vOv=(c.y+c.size>s.y+3)&&(c.y<s.y+s.h-3);
-      if(!vOv) continue;
-      if(Math.abs(c.x-(s.x+s.w))<3) return -1;
-      if(Math.abs((c.x+c.size)-s.x)<3) return 1;
-    }
-    return 0;
+  function nudge(el){ el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:220}); }
+  function updateProgress(){
+    const total=lessons.length, d=lessons.filter(l=>done(l.id)).length;
+    document.getElementById('progfill').style.width=(total?Math.round(d/total*100):0)+'%';
+    document.getElementById('progtxt').textContent=d+' / '+total;
   }
-  function resolveRamps(){
-    const c=cube, cxc=c.x+c.size/2;
-    for(const r of ramps){
-      if(cxc>=r.x0 && cxc<=r.x1){
-        const t=(cxc-r.x0)/(r.x1-r.x0), surf=r.y0+(r.y1-r.y0)*t;
-        if(c.y+c.size>=surf-tile*0.6 && c.vy>=-1){ c.y=surf-c.size; c.vy=0; c.grounded=true; }
+
+  /* ===== reveal on scroll ===== */
+  let io;
+  function observeReveal(){
+    if(io) io.disconnect();
+    io=new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }); },{threshold:.15});
+    document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
+  }
+
+  /* ===== lesson modal ===== */
+  const modal=document.getElementById('modal'), mInner=document.getElementById('mInner');
+  function openLesson(it, n){
+    let html='';
+    html+='<div class="m-kick">// МЕХАНИКА '+n+' · СЛОЖНОСТЬ '+it.diff+'/5</div>';
+    html+='<div class="m-title">'+it.title+'</div>';
+    html+='<p class="muted">'+it.teaser+'</p>';
+
+    html+='<div class="block"><div class="h">🧠 Аналогия</div><div class="analogy"><span class="em">'+it.analogy+'</span></div></div>';
+    html+='<div class="block"><div class="h">🚶 Из жизни</div><p>'+it.life+'</p></div>';
+    if(it.interactive==='react') html+=reactWidgetHTML();
+    html+='<div class="block"><div class="h">🎯 Где встречал</div><div class="games">'+it.games.map(g=>'<span class="game">'+g+'</span>').join('')+'</div></div>';
+    html+='<div class="block"><div class="h">⚙️ Как это работает</div><p>'+it.how+'</p></div>';
+    html+='<div class="block"><div class="h">💻 Код для Unity (C#)</div>'+
+          '<pre><button class="copy">КОПИРОВАТЬ</button><code>'+hl(it.cs)+'</code></pre>'+
+          '<p class="muted" style="margin-top:8px;font-size:12px">Повесь скрипт на объект игрока с Rigidbody2D. Значения (public-поля) настраиваются в инспекторе.</p></div>';
+
+    html+='<div class="m-actions">'+
+          '<a class="btn big" href="play.html?mode='+it.id+'" id="mTest">🧪 ПРОТЕСТИРОВАТЬ</a>'+
+          '<button class="btn" id="mBack2">← НАЗАД</button></div>';
+
+    mInner.innerHTML=html;
+    modal.classList.add('open'); modal.scrollTop=0; document.body.style.overflow='hidden';
+
+    mInner.querySelector('.copy').addEventListener('click',e=>{
+      navigator.clipboard.writeText(it.cs).then(()=>{ e.target.textContent='СКОПИРОВАНО ✓'; setTimeout(()=>e.target.textContent='КОПИРОВАТЬ',1400); }).catch(()=>{});
+    });
+    document.getElementById('mBack2').addEventListener('click',closeModal);
+    document.getElementById('mTest').addEventListener('click',()=>{ setDone(it.id); }); // unlock next on attempt
+    if(it.interactive==='react') initReact();
+  }
+  function closeModal(){ modal.classList.remove('open'); document.body.style.overflow=''; render(); }
+  document.getElementById('mClose').addEventListener('click',closeModal);
+  modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape' && modal.classList.contains('open')) closeModal(); });
+
+  /* ===== reaction-time interactive (coyote) ===== */
+  function reactWidgetHTML(){
+    return '<div class="block"><div class="h">⏱ Мини-тест: твоя реакция</div>'+
+      '<p class="muted" style="margin-bottom:10px">Дождись, пока квадрат загорится белым, и жми как можно быстрее. Это и есть та задержка, которую прощает койот-тайм (обычно 0.1–0.15 сек).</p>'+
+      '<div class="react"><div class="pad" id="rPad">НАЖМИ, ЧТОБЫ НАЧАТЬ</div><div class="res" id="rRes"></div></div></div>';
+  }
+  function initReact(){
+    const pad=document.getElementById('rPad'), res=document.getElementById('rRes');
+    let state='idle', t0=0, timer=null;
+    const arm=()=>{ state='armed'; pad.className='pad armed'; pad.textContent='ЖДИ БЕЛЫЙ...'; res.textContent='';
+      timer=setTimeout(()=>{ state='go'; pad.className='pad go'; pad.textContent='ЖМИ!'; t0=performance.now(); }, 900+Math.random()*2000); };
+    pad.addEventListener('pointerdown',()=>{
+      if(state==='idle'){ arm(); }
+      else if(state==='armed'){ clearTimeout(timer); state='idle'; pad.className='pad'; pad.textContent='РАНО! ЖМИ ЧТОБЫ ЗАНОВО'; }
+      else if(state==='go'){
+        const ms=Math.round(performance.now()-t0); state='idle'; pad.className='pad'; pad.textContent='ЕЩЁ РАЗ';
+        const cmp = ms<=150 ? 'быстрее окна койота — ты бы успел даже без него!' : 'медленнее 0.15 сек — вот тут койот-тайм тебя и спасает.';
+        res.textContent=ms+' мс · '+cmp;
       }
-    }
-  }
-  function checkLedge(){
-    const c=cube;
-    if(c.grounded){ c.hanging=false; return; }
-    if(c.hanging || c.vy<0) return;
-    for(const t of tops){
-      if(t.y>=groundY-1) continue; // only raised platforms
-      if(Math.abs(c.y-t.y)>tile*0.7) continue;
-      if(c.x+c.size>=t.x0-3 && c.x+c.size<=t.x0+tile*0.7){ c.x=t.x0-c.size; c.y=t.y; c.vy=0; c.hanging=true; c.grabLock=0.15; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'L'}; return; }
-      if(c.x<=t.x1+3 && c.x>=t.x1-tile*0.7){ c.x=t.x1; c.y=t.y; c.vy=0; c.hanging=true; c.grabLock=0.15; c.hang={y:t.y,x0:t.x0,x1:t.x1,dir:'R'}; return; }
-    }
+    });
   }
 
-  /* ================= input ================= */
-  const input={left:false,right:false};
-  const jumpPointers=new Set();
-
-  function pressJump(){
-    if(gameState!=='playing') return;
-    const c=cube;
-    if(M().combat){ attack(); return; }
-    c.holding=true;
-    if(c.hanging){ // jump off the ledge (a small hop, mostly up, slight nudge toward the platform)
-      const hg=c.hang; c.hanging=false; c.grounded=false;
-      c.vy=jumpVel()*1.12; c.vx=(hg.dir==='L'?1:-1)*moveSpeed()*0.3; c.wallLock=0.1;
-      c.jumping=true; c.leftBy='jump'; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
-      return;
-    }
-    const canCoyote=M().coyote && !c.grounded && c.coyoteLeft>0 && c.leftBy==='ground' && c.vy>=0;
-    if(c.grounded||canCoyote){ doJump(canCoyote); }
-    else if(M().wall && c.wallSide!==0){ // hop off the wall AND gain height, so you can actually climb up
-      c.vy=jumpVel()*1.18; c.vx=-c.wallSide*moveSpeed()*0.5; c.wallLock=0.12;
-      c.jumping=true; c.leftBy='jump'; c.grounded=false; c.wallSide=0; if(M().squash){c.sqx=0.85;c.sqy=1.15;}
-    }
-    else if(M().djump && c.airJumps>0){ c.airJumps--; doJump(false); }
-    else if(M().buffer){ c.bufferLeft=params.bufferTime; c.bufferTracking=true; c.timer=0; c.timerFrozen=false; }
-  }
-  function doJump(fromCoyote){
-    const c=cube;
-    if(fromCoyote){ c.timer=c.airTime; c.timerFrozen=true; }
-    else if(M().vary){ c.timer=0; c.timerFrozen=false; c.varyTracking=true; }
-    c.vy=jumpVel(); c.grounded=false; c.jumping=true; c.holdTime=0;
-    c.leftBy='jump'; c.coyoteLeft=0; c.bufferLeft=0; c.bufferTracking=false;
-    if(M().squash){ c.sqx=0.75; c.sqy=1.28; }
-  }
-  function releaseJump(){
-    const c=cube; c.holding=false;
-    if(M().combat) return;
-    if(M().vary && c.jumping && c.vy<0 && !params.jumpPhysics) c.vy*=0.5;
-    c.jumping=false; if(M().vary) c.varyTracking=false;
-  }
-  function attack(){
-    const c=cube; c.attackT=0.2;
-    const reach=params.attackR*tile, f=c.facing||1;
-    // a hit box in FRONT of the cube, in the direction it faces / last moved
-    const ax = f>0 ? c.x+c.size*0.2 : c.x+c.size*0.8-reach;
-    const aw = reach+c.size*0.6, ay=c.y-c.size*0.35, ah=c.size*1.7;
-    c.atk={x:ax,y:ay,w:aw,h:ah};
-    if(enemy && enemy.alive && overlap(ax,ay,aw,ah, enemy.x,enemy.y,enemy.size,enemy.size)){
-      enemy.alive=false; enemy.deadT=1.2; enemy.flash=0.2;
-      hitstop=params.hitstop; triggerShake(1.2);
-      c.timer=params.hitstop; c.timerFrozen=true;
-    }
-  }
-  function triggerShake(mag){ shakeT=0.35; shakeMag=tile*1.5*mag*(M().shake?params.shakeAmt:1); }
-
-  canvas.addEventListener('pointerdown',e=>{
-    jumpPointers.add(e.pointerId);
-    if(jumpPointers.size>=3){ openSettings(); return; }
-    pressJump();
-  });
-  function endJP(e){ jumpPointers.delete(e.pointerId); if(jumpPointers.size===0) releaseJump(); }
-  canvas.addEventListener('pointerup',endJP);
-  canvas.addEventListener('pointercancel',endJP);
-
-  function bindHold(el,on){
-    const set=v=>{ input[on]=v; el.classList.toggle('act',v); };
-    el.addEventListener('pointerdown',e=>{ e.preventDefault(); set(true); try{el.setPointerCapture(e.pointerId);}catch(_){} });
-    el.addEventListener('pointerup',e=>{ e.preventDefault(); set(false); });
-    el.addEventListener('pointercancel',()=>set(false));
-    el.addEventListener('pointerleave',()=>set(false));
-    el.addEventListener('contextmenu',e=>e.preventDefault());
-  }
-  bindHold(document.getElementById('btnLeft'),'left');
-  bindHold(document.getElementById('btnRight'),'right');
-  const btnAttack=document.getElementById('btnAttack');
-  btnAttack.addEventListener('pointerdown',e=>{ e.preventDefault(); btnAttack.classList.add('act'); if(gameState==='playing') attack(); });
-  btnAttack.addEventListener('pointerup',e=>{ e.preventDefault(); btnAttack.classList.remove('act'); });
-  btnAttack.addEventListener('pointercancel',()=>btnAttack.classList.remove('act'));
-
-  window.addEventListener('keydown',e=>{
-    if(e.code==='ArrowLeft'||e.key==='a'||e.key==='A'||e.key==='ф'||e.key==='Ф') input.left=true;
-    else if(e.code==='ArrowRight'||e.key==='d'||e.key==='D'||e.key==='в'||e.key==='В') input.right=true;
-    else if(e.code==='Space'||e.code==='ArrowUp'||e.key==='w'||e.key==='W'){ e.preventDefault(); if(!e.repeat) pressJump(); }
-    else if(e.key==='m'||e.key==='M'||e.code==='Escape'){ e.preventDefault(); gameState==='settings'?closeSettings():openSettings(); }
-  });
-  window.addEventListener('keyup',e=>{
-    if(e.code==='ArrowLeft'||e.key==='a'||e.key==='A'||e.key==='ф'||e.key==='Ф') input.left=false;
-    else if(e.code==='ArrowRight'||e.key==='d'||e.key==='D'||e.key==='в'||e.key==='В') input.right=false;
-    else if(e.code==='Space'||e.code==='ArrowUp'||e.key==='w'||e.key==='W'){ e.preventDefault(); releaseJump(); }
-  });
-  document.addEventListener('gesturestart',e=>e.preventDefault());
-
-  /* ================= update ================= */
-  function update(dt){
-    if(hitstop>0){ hitstop-=dt; if(shakeT>0) shakeT-=dt; return; }
-    const c=cube, prevGrounded=c.grounded, m=M();
-    const dir=(input.right?1:0)-(input.left?1:0);
-    if(dir!==0) c.facing=dir;
-
-    if(c.hanging){
-      // hanging on a ledge: frozen in place. Any left/right press = let go.
-      c.vx=0; c.vy=0;
-      if(c.grabLock>0) c.grabLock-=dt;
-      else if(input.left||input.right) c.hanging=false;
-    } else {
-      // horizontal (wall-jump briefly locks control so the hop actually pushes off)
-      const target=dir*moveSpeed();
-      const smooth=m.accel?params.accelK:10;
-      if(c.wallLock>0){ c.wallLock-=dt; }
-      else { c.vx+=(target-c.vx)*Math.min(1,smooth*dt); if(dir===0 && Math.abs(c.vx)<1.5) c.vx=0; }
-
-      // gravity
-      if(!c.grounded){
-        let g=gravity();
-        if(m.apex && Math.abs(c.vy)<tile*6) g*=params.apexGrav;
-        if(m.vary && c.jumping && c.holding && c.vy<0 && c.holdTime<params.jumpMaxHold){ g*=(params.jumpPhysics?0.62:0.45); c.holdTime+=dt; }
-        else if(m.vary) c.jumping=false;
-        if(m.fastfall && c.vy>0) g*=params.fallMul;
-        c.vy+=g*dt;
-        const term=m.fallcap?params.fallCap*tile:tile*48;
-        if(c.vy>term) c.vy=term;
-      }
-
-      // integrate X + walls
-      c.x+=c.vx*dt; resolveHorizontal(); c.x=clamp(c.x,0,worldW-c.size);
-      if(m.wall && !c.grounded){
-        const side=wallTouch(); c.wallSide=side;
-        if(side!==0 && c.vy>0) c.vy=Math.min(c.vy,params.wallSlide*tile);
-      } else c.wallSide=0;
-
-      // integrate Y
-      const pb=c.y+c.size; c.y+=c.vy*dt; resolveVertical(pb);
-      if(m.slope) resolveRamps();
-      if(m.ledge) checkLedge();
-    }
-
-    // grounded bookkeeping
-    if(c.grounded){
-      c.coyoteLeft=params.coyoteTime; c.leftBy='ground'; c.airTime=0;
-      c.airJumps=m.djump?params.airJumps:0;
-      if(!prevGrounded){ onLand(c.landImpact); if(m.buffer && c.bufferLeft>0){ c.timerFrozen=true; doJump(false); } }
-    } else if(!c.hanging){
-      c.airTime+=dt;
-      if(c.coyoteLeft>0){ c.coyoteLeft-=dt; if(c.coyoteLeft<0)c.coyoteLeft=0; }
-      if(c.bufferLeft>0){ c.bufferLeft-=dt; if(c.bufferLeft<0){c.bufferLeft=0;c.bufferTracking=false;} }
-      if(prevGrounded) c.timerFrozen=false;
-    }
-
-    // squash easing
-    c.sqx+=(1-c.sqx)*Math.min(1,11*dt);
-    c.sqy+=(1-c.sqy)*Math.min(1,11*dt);
-    if(c.attackT>0) c.attackT-=dt;
-
-    updateEnemy(dt);
-    updateParticles(dt);
-    updateCamera(dt);
-    updateTimer(dt);
-
-    c.trail.unshift({x:c.x,y:c.y,lit:(c.holding||c.attackT>0)});
-    if(c.trail.length>8) c.trail.pop();
-  }
-
-  function onLand(impact){
-    const c=cube, hard=Math.min(1,impact/(tile*30));
-    if(M().squash){ c.sqx=1+0.42*hard; c.sqy=1-0.36*hard; }
-    if(M().dust && impact>tile*8) spawnDust(4+Math.round(hard*10));
-    if(M().shake && impact>tile*13) triggerShake(0.4+hard);
-  }
-  function spawnDust(n){
-    const bx=cube.x+cube.size/2, by=cube.y+cube.size;
-    for(let i=0;i<n;i++){
-      const sp=tile*(2+Math.random()*4), side=(Math.random()<0.5?-1:1);
-      particles.push({x:bx,y:by,vx:Math.cos(Math.random()*0.7)*sp*side,vy:-Math.random()*sp*0.7,life:0.5,max:0.5,s:Math.max(2,tile*0.13)});
-    }
-  }
-  function updateParticles(dt){
-    for(let i=particles.length-1;i>=0;i--){
-      const p=particles[i];
-      p.vy+=gravity()*0.6*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
-      if(p.life<=0) particles.splice(i,1);
-    }
-  }
-  function updateEnemy(dt){
-    const e=enemy; if(!e) return;
-    if(!e.alive){ e.deadT-=dt; if(e.flash>0)e.flash-=dt; if(e.deadT<=0){ e.alive=true; e.x=clamp(cube.x+(Math.random()<0.5?-1:1)*W*0.4,tile,worldW-tile*2); } return; }
-    const dir=Math.sign((cube.x)-e.x);
-    e.x+=dir*tile*2.2*dt; e.y=groundY-e.size; if(e.flash>0)e.flash-=dt;
-  }
-  function updateCamera(dt){
-    const c=cube;
-    if(camFollowX){
-      const cubeC=c.x+c.size/2 + (M().camlook?clamp(c.vx/moveSpeed(),-1,1)*params.lookAhead*W:0);
-      const dz=params.camDeadzone*W, center=cam.x+W/2;
-      let desired=cam.x;
-      if(cubeC>center+dz) desired=cubeC-(W/2+dz);
-      else if(cubeC<center-dz) desired=cubeC-(W/2-dz);
-      cam.x+=(desired-cam.x)*Math.min(1,params.camSmooth*dt);
-    } else cam.x=0;
-    if(camFollowY){ cam.y+=((c.y+c.size/2-H*0.5)-cam.y)*Math.min(1,6*dt); } else cam.y=0;
-    cam.x=clamp(cam.x,0,Math.max(0,worldW-W));
-    cam.y=clamp(cam.y,0,Math.max(0,worldH-H));
-    if(shakeT>0) shakeT-=dt;
-  }
-  function camX(){ let s=shakeT>0?(Math.random()*2-1)*shakeMag*(shakeT/0.35):0; return cam.x-s; }
-  function camY(){ let s=shakeT>0?(Math.random()*2-1)*shakeMag*(shakeT/0.35):0; return cam.y-s; }
-
-  function updateTimer(dt){
-    const c=cube; if(c.timerFrozen) return;
-    const m=M();
-    if(m.combat){ c.timer=0; return; }
-    if(m.buffer && c.bufferTracking && c.bufferLeft>0){ c.timer-=dt; return; }
-    if(m.coyote && !c.grounded && c.leftBy==='ground'){ c.timer=c.airTime; return; }
-    if(m.vary && c.varyTracking && c.jumping){ c.timer=c.holdTime; return; }
-    if(m.hitbox && c.grounded && c.landedForgiven>0.001){ c.timer=c.landedForgiven; c.timerFrozen=true; return; }
-    if(m.accel||m.skid){ c.timer=Math.abs(c.vx)/moveSpeed(); return; }
-    if(m.fastfall||m.fallcap){ c.timer=Math.max(0,c.vy)/(tile*48); return; }
-    if(!c.grounded) c.timer=c.airTime; else c.timer=0;
-  }
-
-  /* ================= render ================= */
-  function draw(){
-    ctx.clearRect(0,0,W,H); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
-    const c=cube, ox=camX(), oy=camY();
-    ctx.save(); ctx.translate(-ox,-oy);
-
-    // faint structure outlines (walls/ceilings/blocks)
-    ctx.save(); ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=1.4;
-    for(const s of solids){ ctx.strokeRect(s.x+.5,s.y+.5,s.w-1,Math.min(s.h,worldH-s.y+tile*2)-1); }
-    ctx.restore();
-
-    // reference ticks
-    if(marks.length){
-      ctx.save(); ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1.4;
-      for(const mx of marks){ ctx.beginPath(); ctx.moveTo(mx,groundY); ctx.lineTo(mx,groundY-tile*1.3); ctx.stroke(); }
-      ctx.restore();
-    }
-
-    // bright surfaces + glow
-    ctx.save(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.6;
-    ctx.shadowColor='rgba(255,255,255,.7)'; ctx.shadowBlur=7;
-    for(const t of tops){ ctx.beginPath(); ctx.moveTo(t.x0,t.y+.5); ctx.lineTo(t.x1,t.y+.5); ctx.stroke(); }
-    if(pit){ ctx.beginPath(); ctx.moveTo(pit.x0+.5,groundY); ctx.lineTo(pit.x0+.5,pit.floorY); ctx.moveTo(pit.x1-.5,groundY); ctx.lineTo(pit.x1-.5,pit.floorY); ctx.stroke(); }
-    for(const r of ramps){ ctx.beginPath(); ctx.moveTo(r.x0,r.y0); ctx.lineTo(r.x1,r.y1); ctx.stroke(); }
-    ctx.restore();
-
-    // shadow gap under cube
-    const cxC=c.x+c.size/2, shy=c.grounded?c.y+c.size:groundY;
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(cxC,shy,c.size*0.82,0,Math.PI*2); ctx.fill();
-
-    // particles
-    if(particles.length){
-      for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle='#fff'; ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s); }
-      ctx.globalAlpha=1;
-    }
-
-    // enemy
-    if(enemy){
-      const e=enemy;
-      if(e.alive || e.deadT>0){
-        ctx.save(); ctx.shadowColor='rgba(255,255,255,.8)'; ctx.shadowBlur=8;
-        const a=e.alive?1:Math.max(0,e.deadT/1.2);
-        ctx.globalAlpha=a;
-        if(e.flash>0){ ctx.fillStyle='#fff'; ctx.fillRect(e.x,e.y,e.size,e.size); }
-        else{ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(e.x+1,e.y+1,e.size-2,e.size-2);
-              ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.moveTo(e.x+e.size*0.3,e.y+e.size*0.65); ctx.lineTo(e.x+e.size*0.7,e.y+e.size*0.65); ctx.stroke(); }
-        ctx.globalAlpha=1; ctx.restore();
-      }
-    }
-
-    // directional attack hit box (in the facing direction)
-    if(M().combat && c.attackT>0 && c.atk){
-      const a=Math.min(1,c.attackT/0.2);
-      ctx.save(); ctx.shadowColor='rgba(255,255,255,.8)'; ctx.shadowBlur=10;
-      ctx.globalAlpha=a*0.18; ctx.fillStyle='#fff'; ctx.fillRect(c.atk.x,c.atk.y,c.atk.w,c.atk.h);
-      ctx.globalAlpha=a*0.7; ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(c.atk.x,c.atk.y,c.atk.w,c.atk.h);
-      ctx.globalAlpha=1; ctx.restore();
-    }
-
-    // trail
-    for(let i=c.trail.length-1;i>=1;i--){
-      const t=c.trail[i], al=(1-i/c.trail.length)*0.16; if(al<=0.012) continue;
-      const tx=Math.round(t.x), ty=Math.round(t.y);
-      if(t.lit){ ctx.fillStyle='rgba(255,255,255,'+al.toFixed(3)+')'; ctx.fillRect(tx,ty,c.size,c.size); }
-      else{ ctx.strokeStyle='rgba(255,255,255,'+al.toFixed(3)+')'; ctx.lineWidth=1.2; ctx.strokeRect(tx+.6,ty+.6,c.size-1.2,c.size-1.2); }
-    }
-
-    // cube (with squash about bottom-centre)
-    const lit=(c.holding||c.attackT>0);
-    ctx.save();
-    ctx.translate(cxC, c.y+c.size); ctx.scale(c.sqx,c.sqy);
-    ctx.shadowColor='rgba(255,255,255,.85)'; ctx.shadowBlur=lit?16:8;
-    if(lit){ ctx.fillStyle='#fff'; ctx.fillRect(-c.size/2,-c.size,c.size,c.size); }
-    else{ ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.strokeRect(-c.size/2+.7,-c.size+.7,c.size-1.4,c.size-1.4); }
-    ctx.restore();
-
-    ctx.restore(); // end world
-
-    // camera zone (screen space): camera moves when the cube leaves this box, stops inside it
-    if(camFollowX){
-      const dz=params.camDeadzone*W;
-      ctx.save(); ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1.4; ctx.setLineDash([7,7]);
-      ctx.strokeRect(W/2-dz, H*0.14, dz*2, H*0.66);
-      ctx.setLineDash([]);
-      ctx.fillStyle='rgba(150,150,150,.7)'; ctx.font=Math.max(7,Math.round(H*0.02))+"px 'Pixelify Sans',monospace";
-      ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText('ЗОНА КАМЕРЫ', W/2, H*0.14-2);
-      ctx.restore();
-    }
-
-    drawTimer(c.timer);
-  }
-
-  function drawTimer(v){
-    let txt=v.toFixed(2); if(txt==='-0.00') txt='0.00';
-    const fs=Math.min(W*0.095,H*0.21), topY=Math.max(6,Math.round(H*0.04));
-    ctx.save(); ctx.fillStyle='#fff';
-    ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=Math.round(fs*0.24);
-    ctx.font='600 '+fs+"px -apple-system, 'Segoe UI', system-ui, Arial, sans-serif";
-    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText(txt,W/2,topY);
-    ctx.restore();
-    ctx.save(); ctx.fillStyle='rgba(140,140,140,.9)';
-    const lfs=Math.max(8,Math.round(H*0.03));
-    ctx.font=lfs+"px 'Pixelify Sans', monospace";
-    ctx.textAlign='center'; ctx.textBaseline='top';
-    ctx.fillText(M().label,W/2,topY+fs+Math.max(5,Math.round(H*0.02)));
-    ctx.restore();
-  }
-
-  function present(){
-    const pw=canvas.width, ph=canvas.height, bh=buf.height;
-    vctx.setTransform(1,0,0,1,0,0);
-    vctx.imageSmoothingEnabled=true; vctx.imageSmoothingQuality='high';
-    vctx.clearRect(0,0,pw,ph); vctx.fillStyle='#000'; vctx.fillRect(0,0,pw,ph);
-    const cx=pw/2, bow=ph*0.032, mag=0.032, hcomp=0.03;
-    const sw=Math.max(2,Math.round(2*DPR));
-    for(let x=0;x<pw;x+=sw){
-      const w=Math.min(sw,pw-x), cxs=x+w/2, nx=(cxs-cx)/cx, k=1-nx*nx;
-      const scaleY=1+mag*k, dh=ph*scaleY, dy=(ph-dh)/2+bow*k;
-      const hc=1-hcomp*nx*nx, dw=w*hc, dx=cx+(cxs-cx)*hc-dw/2;
-      vctx.drawImage(buf, x*RS,0,w*RS,bh, dx-0.6,dy,dw+1.2,dh);
-    }
-  }
-
-  /* ================= loop ================= */
-  let gameState='menu', last=performance.now();
-  function loop(now){
-    let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
-    if(gameState==='playing') update(dt);
-    draw(); present();
-    requestAnimationFrame(loop);
-  }
-
-  /* ================= menus ================= */
-  const startMenu=document.getElementById('startMenu');
-  const settingsMenu=document.getElementById('settingsMenu');
-  const settingsModeLbl=document.getElementById('settingsMode');
-  const pad=document.getElementById('pad');
-  const closeBtn=document.getElementById('closeBtn');
-  const hint=document.getElementById('hint');
-  const startBtnsEl=document.getElementById('startBtns');
-  const miniModesEl=document.getElementById('miniModes');
-  const settingsBox=document.getElementById('settingsBox');
-
-  // build menu buttons
-  for(const key of MODE_ORDER){
-    const b=document.createElement('button'); b.className='btn'; b.dataset.mode=key; b.textContent=MODES[key].label;
-    startBtnsEl.appendChild(b);
-    const b2=document.createElement('button'); b2.className='btn'; b2.dataset.mode=key; b2.textContent=MODES[key].short;
-    miniModesEl.appendChild(b2);
-  }
-  startBtnsEl.addEventListener('click',e=>{ const b=e.target.closest('.btn'); if(b) startGame(b.dataset.mode); });
-  miniModesEl.addEventListener('click',e=>{ const b=e.target.closest('.btn'); if(!b) return; mode=b.dataset.mode; buildLevel(false); applyModeUI(); syncSettingsUI(); });
-
-  function applyModeUI(){
-    const combat=M().combat;
-    btnAttack.classList.toggle('show', combat && gameState==='playing');
-    hint.innerHTML = combat
-      ? '&#9664; &#9654; = ХОДЬБА&nbsp;&nbsp;•&nbsp;&nbsp;ТАП/УДАР = АТАКА&nbsp;&nbsp;•&nbsp;&nbsp;3 ПАЛЬЦА / M = МЕНЮ'
-      : '&#9664; &#9654; = ХОДЬБА&nbsp;&nbsp;•&nbsp;&nbsp;ТАП СПРАВА = ПРЫЖОК&nbsp;&nbsp;•&nbsp;&nbsp;3 ПАЛЬЦА / M = МЕНЮ';
-  }
-
-  function startGame(m){
-    mode=m; buildLevel(false);
-    startMenu.classList.add('tv-off');
-    setTimeout(()=>{
-      startMenu.classList.add('hidden'); startMenu.classList.remove('tv-off');
-      gameState='playing'; pad.classList.add('show'); applyModeUI();
-    },450);
-  }
-  function openSettings(){
-    if(gameState!=='playing') return;
-    gameState='settings'; pad.classList.remove('show'); btnAttack.classList.remove('show');
-    input.left=input.right=false;
-    document.getElementById('btnLeft').classList.remove('act');
-    document.getElementById('btnRight').classList.remove('act');
-    syncSettingsUI();
-    settingsMenu.classList.remove('hidden'); settingsMenu.classList.remove('tv-off'); settingsMenu.classList.add('tv-on');
-    closeBtn.classList.add('show');
-  }
-  function closeSettings(){
-    closeBtn.classList.remove('show');
-    settingsMenu.classList.remove('tv-on'); settingsMenu.classList.add('tv-off');
-    setTimeout(()=>{
-      settingsMenu.classList.add('hidden'); settingsMenu.classList.remove('tv-off');
-      gameState='playing'; pad.classList.add('show'); applyModeUI();
-    },450);
-  }
-  document.getElementById('resumeBtn').addEventListener('click',closeSettings);
-  closeBtn.addEventListener('click',closeSettings);
-
-  const fmt=(v,d)=> d && d.int ? String(Math.round(v)) : (+v).toFixed(2);
-
-  function syncSettingsUI(){
-    settingsModeLbl.textContent='РЕЖИМ: '+M().label;
-    Array.from(miniModesEl.children).forEach(b=>b.classList.toggle('sel', b.dataset.mode===mode));
-    renderSettings();
-  }
-  function renderSettings(){
-    const list=MODE_PARAMS[mode]||[]; settingsBox.innerHTML='';
-    if(!list.length){ settingsBox.innerHTML='<div class="empty">у этой механики нет параметров</div>'; return; }
-    for(const key of list){
-      if(key==='physics'){
-        settingsBox.insertAdjacentHTML('beforeend',
-          '<div class="srow"><div class="lab"><span>ФИЗИКА ПРЫЖКА</span><span class="val" id="v_physics">'+(params.jumpPhysics?'ВКЛ':'ВЫКЛ')+'</span></div>'+
-          '<button class="btn toggleBtn" id="t_physics">'+(params.jumpPhysics?'ВЫКЛЮЧИТЬ':'ВКЛЮЧИТЬ')+'</button></div>');
-        continue;
-      }
-      const d=PDEF[key];
-      settingsBox.insertAdjacentHTML('beforeend',
-        '<div class="srow"><div class="lab"><span>'+d.label+'</span><span class="val" id="v_'+key+'">'+fmt(params[key],d)+'</span></div>'+
-        '<input type="range" id="s_'+key+'" min="'+d.min+'" max="'+d.max+'" step="'+d.step+'" value="'+params[key]+'"></div>');
-    }
-    for(const key of list){
-      if(key==='physics'){ const b=document.getElementById('t_physics'); b.onclick=()=>{ params.jumpPhysics=!params.jumpPhysics; renderSettings(); }; continue; }
-      const s=document.getElementById('s_'+key), vv=document.getElementById('v_'+key);
-      s.oninput=()=>{ params[key]=parseFloat(s.value); vv.textContent=fmt(params[key],PDEF[key]); };
-    }
-  }
-
-  /* ================= boot ================= */
-  resize();
-  if(document.fonts&&document.fonts.load){ document.fonts.load("20px 'Pixelify Sans'").catch(()=>{}); }
-  requestAnimationFrame(loop);
+  render();
 })();
 </script>
 </body>
