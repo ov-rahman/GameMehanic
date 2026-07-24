@@ -22,7 +22,21 @@
     -webkit-user-select:none; user-select:none;
     touch-action:none; overscroll-behavior:none;
   }
-  #game{ position:fixed; inset:0; display:block; width:100%; height:100%; background:#000; }
+  #game{ position:fixed; inset:0; display:block; width:100%; height:100%; background:#000; border-radius:16px; }
+
+  /* CRT overlay: scanlines, vignette, glass glare (over the bulged canvas) */
+  #crt{
+    position:fixed; inset:0; z-index:4; pointer-events:none; border-radius:16px;
+    background:
+      repeating-linear-gradient(0deg,
+        rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.16) 3px, rgba(0,0,0,0) 4px);
+    box-shadow: inset 0 0 140px rgba(0,0,0,.85), inset 0 0 46px rgba(0,0,0,.55);
+  }
+  #crt::after{
+    content:''; position:absolute; inset:0; border-radius:16px;
+    background:radial-gradient(130% 65% at 50% -12%, rgba(255,255,255,.06), rgba(255,255,255,0) 55%);
+  }
+  @media (max-width:900px){ #game,#crt,#crt::after{ border-radius:12px; } }
 
   /* ---------- Overlays (menus) ---------- */
   .overlay{
@@ -153,6 +167,7 @@
 <body>
 
 <canvas id="game"></canvas>
+<div id="crt"></div>
 
 <button id="closeBtn" aria-label="закрыть">&#10005;</button>
 
@@ -227,8 +242,10 @@
 <script>
 "use strict";
 (function(){
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('game');   // visible screen
+  const vctx = canvas.getContext('2d');
+  const buf = document.createElement('canvas');      // game renders here first
+  const ctx = buf.getContext('2d');                  // all draw code uses this
   let W=0, H=0, DPR=1;
 
   const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
@@ -307,9 +324,12 @@
   function resize(){
     DPR = Math.min(window.devicePixelRatio||1, 2.5);
     W = window.innerWidth; H = window.innerHeight;
-    canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
+    const pw=Math.floor(W*DPR), ph=Math.floor(H*DPR);
+    canvas.width=pw; canvas.height=ph;
     canvas.style.width=W+'px'; canvas.style.height=H+'px';
-    ctx.setTransform(DPR,0,0,DPR,0,0);
+    buf.width=pw; buf.height=ph;
+    ctx.setTransform(DPR,0,0,DPR,0,0);      // game draws in CSS px into the buffer
+    vctx.setTransform(1,0,0,1,0,0);         // we blit in device px
     buildLevel(true);
   }
   window.addEventListener('resize', resize);
@@ -555,7 +575,26 @@
     let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
     if(gameState==='playing') update(dt);
     draw();
+    present();
     requestAnimationFrame(loop);
+  }
+
+  // blit the buffer to screen with a gentle convex (CRT) bulge
+  function present(){
+    const pw=canvas.width, ph=canvas.height;
+    vctx.clearRect(0,0,pw,ph);
+    vctx.fillStyle='#000'; vctx.fillRect(0,0,pw,ph);
+    const cx=pw/2, cy=ph/2;
+    const amp=0.030;                        // how convex the screen looks
+    const sw=Math.max(2, Math.round(4*DPR));// slice width in device px
+    for(let x=0; x<pw; x+=sw){
+      const w=Math.min(sw, pw-x);
+      const nx=((x+w/2)-cx)/cx;             // -1..1 across the screen
+      const scaleY=1+amp*(1-nx*nx);         // stretch most in the middle
+      const dh=ph*scaleY;
+      const dy=cy*(1-scaleY);
+      vctx.drawImage(buf, x,0,w,ph, x-0.5,dy, w+1,dh);
+    }
   }
 
   /* ---------- menus ---------- */
