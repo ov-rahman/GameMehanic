@@ -232,6 +232,7 @@
   const buf = document.createElement('canvas');      // game renders here first
   const ctx = buf.getContext('2d');                  // all draw code uses this
   let W=0, H=0, DPR=1;
+  const RS=1.8;   // supersampling factor for the buffer (kills warp aliasing)
 
   const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 
@@ -312,9 +313,9 @@
     const pw=Math.floor(W*DPR), ph=Math.floor(H*DPR);
     canvas.width=pw; canvas.height=ph;
     canvas.style.width=W+'px'; canvas.style.height=H+'px';
-    buf.width=pw; buf.height=ph;
-    ctx.setTransform(DPR,0,0,DPR,0,0);      // game draws in CSS px into the buffer
-    vctx.setTransform(1,0,0,1,0,0);         // we blit in device px
+    buf.width=Math.floor(pw*RS); buf.height=Math.floor(ph*RS);
+    ctx.setTransform(DPR*RS,0,0,DPR*RS,0,0); // game draws in CSS px into a hi-res buffer
+    vctx.setTransform(1,0,0,1,0,0);          // we blit in device px
     buildLevel(true);
   }
   window.addEventListener('resize', resize);
@@ -566,11 +567,12 @@
     vctx.imageSmoothingEnabled=true; vctx.imageSmoothingQuality='high';
     vctx.clearRect(0,0,pw,ph);
     vctx.fillStyle='#000'; vctx.fillRect(0,0,pw,ph);
+    const bh=buf.height;
     const cx=pw/2;
-    const bow  = ph*0.035;   // vertical bow: lines dip at the centre (softer)
-    const mag  = 0.045;      // extra magnification in the middle
+    const bow  = ph*0.032;   // vertical bow: lines dip at the centre
+    const mag  = 0.032;      // extra magnification in the middle
     const hcomp= 0.03;       // horizontal squeeze towards the edges
-    const sw=Math.max(1, Math.round(1.5*DPR)); // thin slices -> smooth curve
+    const sw=Math.max(2, Math.round(2*DPR));
     for(let x=0; x<pw; x+=sw){
       const w=Math.min(sw, pw-x);
       const cxs=x+w/2;
@@ -582,7 +584,8 @@
       const hc=1-hcomp*nx*nx;       // pull edges inward for a domed look
       const dw=w*hc;
       const dx=cx+(cxs-cx)*hc - dw/2;
-      vctx.drawImage(buf, x,0,w,ph, dx-0.6, dy, dw+1.2, dh);
+      // source is the hi-res buffer (x scaled by RS); smoothed downscale => crisp
+      vctx.drawImage(buf, x*RS, 0, w*RS, bh, dx-0.6, dy, dw+1.2, dh);
     }
   }
 
