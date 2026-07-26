@@ -124,6 +124,17 @@ function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
       c.stroke(); c.setLineDash([]);
     }
   }
+  // тень как в оригинальной игре: пол пропадает прямо под кубом
+  const shx=s.x+V.P/2;
+  let shy=null;
+  for(const p of (w.plats||[])){
+    if(shx>=p[0]-2.5 && shx<=p[1]+2.5 && p[2]>=s.y+V.P-0.6){ if(shy===null||p[2]<shy) shy=p[2]; }
+  }
+  if(shy!==null){
+    c.fillStyle='#050505';
+    c.beginPath(); c.arc(X(shx), Y(shy), V.P*0.82*sc, 0, Math.PI*2); c.fill();
+  }
+
   // отметки высоты прыжков
   for(const a of s.arcs.concat(s.cur?[s.cur]:[])){
     c.strokeStyle= opt.on?'rgba(61,255,158,.5)':'rgba(255,255,255,.35)';
@@ -185,13 +196,13 @@ function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
 }
 
 /* ---------------- камера (особая сцена) ---------------- */
-function cameraSim(c,px,py,pw,ph,st,dt){
+function cameraSim(c,px,py,pw,ph,st,dt,look){
   st.t+=dt;
   const WORLD=210, DEAD=13, LOOK=11, SMOOTH=3.2, GY=36;
   const sc=ph/V.H, visW=pw/sc;
   st.x = 105 + Math.sin(st.t*0.55)*70;                        // игрок ездит туда-сюда
   const vx = Math.cos(st.t*0.55)*70*0.55;
-  const aim = st.x + Math.max(-1,Math.min(1,vx/26))*LOOK;     // упреждение
+  const aim = st.x + (look ? Math.max(-1,Math.min(1,vx/26))*LOOK : 0); // упреждение
   const center = st.cam + visW/2;
   let want = st.cam;
   if(aim>center+DEAD) want = aim-(visW/2+DEAD);
@@ -211,16 +222,20 @@ function cameraSim(c,px,py,pw,ph,st,dt){
   c.font='9px "Pixelify Sans",monospace'; c.textBaseline='top';
   c.fillStyle='rgba(61,255,158,.85)';
   c.fillText('МЁРТВАЯ ЗОНА — ЗДЕСЬ КАМЕРА СТОИТ', px+pw/2-DEAD*sc, py+9);
+  // тень под игроком (как в игре)
+  c.fillStyle='#050505';
+  c.beginPath(); c.arc(X(st.x+V.P/2), Y(GY), V.P*0.82*sc, 0, Math.PI*2); c.fill();
   // игрок
   c.shadowColor='rgba(255,255,255,.85)'; c.shadowBlur=7; c.strokeStyle='#fff'; c.lineWidth=2;
   c.strokeRect(X(st.x)+1, Y(GY-V.P)+1, V.P*sc-2, V.P*sc-2); c.shadowBlur=0;
-  // упреждение
-  c.strokeStyle='rgba(61,255,158,.85)'; c.lineWidth=1.6; c.beginPath();
-  c.moveTo(X(st.x+V.P/2),Y(GY-V.P/2)); c.lineTo(X(aim),Y(GY-V.P/2)); c.stroke();
-  c.beginPath(); c.arc(X(aim),Y(GY-V.P/2),3,0,7); c.fillStyle=CSS.acc; c.fill();
+  if(look){                                     // линия и точка упреждения
+    c.strokeStyle='rgba(61,255,158,.85)'; c.lineWidth=1.6; c.beginPath();
+    c.moveTo(X(st.x+V.P/2),Y(GY-V.P/2)); c.lineTo(X(aim),Y(GY-V.P/2)); c.stroke();
+    c.beginPath(); c.arc(X(aim),Y(GY-V.P/2),3,0,7); c.fillStyle=CSS.acc; c.fill();
+  }
   c.font='10px "Pixelify Sans",monospace'; c.textBaseline='bottom';
   c.fillStyle='rgba(61,255,158,.9)';
-  c.fillText('ТОЧКА — КУДА СМОТРИТ КАМЕРА (УПРЕЖДЕНИЕ)', px+9, py+ph-10);
+  c.fillText(look?'ТОЧКА — КУДА СМОТРИТ КАМЕРА (УПРЕЖДЕНИЕ)':'КАМЕРА ЕДЕТ, ТОЛЬКО КОГДА ИГРОК ВЫШЕЛ ЗА РАМКУ', px+9, py+ph-10);
   c.restore();
   c.strokeStyle='rgba(255,255,255,.14)'; c.lineWidth=1; c.strokeRect(px+.5,py+.5,pw-1,ph-1);
 }
@@ -275,7 +290,9 @@ const SCENES = {
         else if(!s.gr && s.wall && s.t-s.lastJump>0.28){ press(s,w,f); s.btnAuto=s.t+0.2; } } },
     hint:'Кубик сам отталкивается от стен и лезет вверх.' },
 
-  camera:{ camera:1, hint:'Пока игрок внутри пунктирной рамки — камера стоит. Вышел — поехала.' }
+  camlerp:{ camera:1, look:0, hint:'Пока игрок внутри пунктирной рамки — камера стоит на месте. Вышел — плавно догоняет.' },
+
+  camera:{ camera:1, look:1, hint:'Пока игрок внутри пунктирной рамки — камера стоит. Вышел — поехала.' }
 };
 
 /* ---------------- запуск ---------------- */
@@ -339,7 +356,7 @@ function frame(now){
     const c=sim.ctx; c.clearRect(0,0,sim.w,sim.h);
     c.fillStyle='#050505'; c.fillRect(0,0,sim.w,sim.h);
 
-    if(sim.sc.camera){ cameraSim(c,0,0,sim.w,sim.h,sim.camst,dt); continue; }
+    if(sim.sc.camera){ cameraSim(c,0,0,sim.w,sim.h,sim.camst,dt,sim.sc.look); continue; }
 
     const w=sim.sc.world;
     // шаги фиксированным dt

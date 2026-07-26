@@ -551,9 +551,36 @@ public class WallJump : MonoBehaviour {
     }
 }` },
 
+    { type:'lesson', id:'camlerp', icon:'camera', diff:3,
+      title:'Плавная камера',
+      teaser:'Камера не приклеена к игроку намертво и не дёргается на каждый шаг. Пока он внутри «мёртвой зоны» — камера вообще не двигается. Вышел за неё — камера мягко догоняет.',
+      analogy:'Оператор со стедикамом: он не повторяет каждое подпрыгивание героя, а ведёт кадр плавно, будто камера тяжёлая.',
+      life:'Твой взгляд работает так же. Собеседник чуть качнулся — глаза не двигаются. Отошёл по-настоящему — поворачиваешь голову. Если бы взгляд следил за каждым микродвижением, укачало бы за минуту.',
+      games:['Celeste','Hollow Knight','Super Mario World','Dead Cells'],
+      steps:['Задаём мёртвую зону — прямоугольник в центре экрана.','Пока игрок внутри неё, камера не двигается вообще.','Игрок вышел за границу — считаем новую цель для камеры.','Двигаемся к цели через Lerp, а не телепортом: камера ощущается «тяжёлой».'],
+      cs:`// Плавная камера: мёртвая зона + мягкое догоняние
+public class SmoothCamera : MonoBehaviour {
+    public Transform target;       // игрок
+    public float deadzone = 1.5f;  // полуширина мёртвой зоны
+    public float smooth = 5f;      // насколько быстро догоняем
+
+    // Камеру двигаем в LateUpdate — после того, как игрок уже сходил
+    void LateUpdate() {
+        Vector3 pos = transform.position;
+        float dx = target.position.x - pos.x;
+
+        // Пока игрок внутри мёртвой зоны — камера стоит на месте
+        if (dx > deadzone)       pos.x = target.position.x - deadzone;
+        else if (dx < -deadzone) pos.x = target.position.x + deadzone;
+
+        // Плавно тянемся к цели: чем меньше smooth, тем "тяжелее" камера
+        transform.position = Vector3.Lerp(transform.position, pos, smooth * Time.deltaTime);
+    }
+}` },
+
     { type:'lesson', id:'camlook', icon:'camera', diff:4, visual:'camera', vcap:'МЁРТВАЯ ЗОНА + УПРЕЖДЕНИЕ',
-      title:'Умная камера',
-      teaser:'Камера с мёртвой зоной, упреждением и плавностью. Она не дёргается на каждый шаг, смотрит чуть вперёд по движению и мягко догоняет игрока.',
+      title:'Камера с упреждением',
+      teaser:'Следующий шаг после плавной камеры: она смотрит не туда, где игрок сейчас, а туда, куда он бежит. Игрок раньше видит, что впереди, и успевает среагировать.',
       analogy:'Хороший оператор не трясёт камеру на каждый шаг героя, но заранее ведёт объектив туда, куда тот бежит.',
       life:'Ведёшь взгляд за машиной на дороге: смотришь не строго на неё, а чуть вперёд — туда, где она вот-вот окажется.',
       games:['Celeste','Ori','Hollow Knight','Super Mario World'],
@@ -585,7 +612,7 @@ public class SmartCamera : MonoBehaviour {
 
   /* ---------- порядок курса: две части ---------- */
   const SIMKEY={vary:'vary',coyote:'coyote',buffer:'buffer',hitbox:'hitbox',fastfall:'fastfall',
-    apex:'apex',djump:'djump',corner:'corner',wall:'wall',camlook:'camera'};
+    apex:'apex',djump:'djump',corner:'corner',wall:'wall',camlerp:'camlerp',camlook:'camera'};
   const byId={}; items.filter(x=>x.type==='lesson').forEach(l=>byId[l.id]=l);
   const inter=items.filter(x=>x.type==='interlude');
   const seq=[
@@ -596,7 +623,7 @@ public class SmartCamera : MonoBehaviour {
     { type:'part', n:'II', title:'ДРУГИЕ ПОЛЕЗНЫЕ МЕХАНИКИ',
       sub:'Первую часть прошёл — теперь то, что игрок уже замечает глазом: как падает тело, как ведёт себя камера, как отталкиваться от стен. Эти механики расширяют возможности, а не прощают ошибки.',
       note:'Разбор такой же: аналогия, шаги, код для Unity и своя песочница.' },
-    byId.fastfall, byId.apex, byId.djump, inter[2], byId.corner, byId.wall, byId.camlook
+    byId.fastfall, byId.apex, byId.djump, inter[2], byId.corner, byId.wall, byId.camlerp, byId.camlook
   ];
 
   /* ---------- progress / unlock ---------- */
