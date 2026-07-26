@@ -157,6 +157,17 @@
   @keyframes spin{ 0%,100%{transform:rotate(0);} 50%{transform:rotate(90deg);} }
   @media (orientation:portrait){ #rotate{ display:flex; } }
 
+  /* на большом мониторе интерфейс тоже крупнее, иначе всё кажется мелким */
+  @media (min-width:1200px) and (min-height:700px){
+    .ctrl{ width:92px; height:92px; font-size:34px; }
+    #btnAttack{ width:110px; height:110px; font-size:17px; }
+    #backLink{ font-size:13px; padding:10px 15px; }
+    #closeBtn{ width:52px; height:52px; font-size:24px; }
+    .hint{ font-size:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 14px); }
+    #pad{ gap:18px; left:calc(env(safe-area-inset-left,0px) + 26px); bottom:calc(env(safe-area-inset-bottom,0px) + 26px); }
+    #btnAttack{ right:calc(env(safe-area-inset-right,0px) + 26px); bottom:calc(env(safe-area-inset-bottom,0px) + 26px); }
+  }
+
   @media (max-height:520px){
     .overlay{ gap:8px; padding:12px 4vw; }
     .title{ font-size:clamp(13px,5vh,20px); margin-top:2px; }
@@ -304,7 +315,10 @@
   function flat(x0,x1,y){ solids.push({x:x0,y:y,w:x1-x0,h:bottomY-y}); tops.push({x0:x0,x1:x1,y:y}); }
 
   function buildLevel(keepPos){
-    tile=Math.round(clamp(H*0.052,14,26)); cube.size=tile;
+    // На телефоне масштаб прежний, а чем больше окно — тем крупнее игра,
+    // иначе на мониторе всё выглядит мелким и потерянным в пустоте.
+    const k = 0.052 + 0.013*clamp((H-500)/580, 0, 1);
+    tile=Math.round(clamp(Math.min(H*k, W*0.05), 14, 72)); cube.size=tile;
     const gy=Math.round(H*0.66);
     worldW=W; worldH=H; groundY=gy; bottomY=H+tile*10;
     solids=[]; tops=[]; ramps=[]; marks=[]; pit=null; enemy=null;
@@ -314,7 +328,7 @@
 
     if(m.pit){
       const wide=m.djump;
-      const p0=Math.round(W*0.42), p1=Math.round(W*(wide?0.68:0.58));
+      const p0=Math.round(W*0.42), p1=Math.round(p0 + tile*(wide?6.4:3.4));
       const pf=Math.round(clamp(gy+tile*2.6,gy+tile*2,H*0.9));
       solids.push({x:0,y:gy,w:p0,h:bottomY-gy});
       solids.push({x:p1,y:gy,w:W-p1,h:bottomY-gy});
@@ -329,7 +343,7 @@
       sx=Math.round(W*0.16); sy=topY-cube.size;
     } else if(m.corner){
       flat(0,W,gy);
-      const cyTop=Math.round(gy-tile*2.8), g0=Math.round(W*0.46), g1=Math.round(W*0.54);
+      const cyTop=Math.round(gy-tile*2.8), g0=Math.round(W*0.5-tile*1.3), g1=Math.round(W*0.5+tile*1.3);
       solids.push({x:0,y:0,w:g0,h:cyTop});
       solids.push({x:g1,y:0,w:W-g1,h:cyTop});
       sx=Math.round(W*0.30);
