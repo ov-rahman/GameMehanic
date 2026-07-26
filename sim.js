@@ -14,15 +14,16 @@ const DIST   = vx => vx*FLIGHT;                  // дальность прыж�
 /* ---------------- физика ---------------- */
 function newState(w){
   return { t:0, x:w.start[0], y:w.start[1], vx:w.vx||0, vy:0,
-    gr:true, coy:0, buf:0, aj:w.airJumps||0, hold:false, dead:false,
+    gr:true, coy:0, buf:0, aj:w.airJumps||0, hold:false, pressT:-9, btnAuto:0, dead:false,
     fired:0, wall:0, lastJump:-9, trail:[], presses:[], arcs:[], cur:null, done:0 };
 }
 function jump(s){
-  s.vy=-V.JV; s.gr=false; s.coy=0; s.hold=true; s.fired++; s.lastJump=s.t;
+  s.vy=-V.JV; s.gr=false; s.coy=0; s.fired++; s.lastJump=s.t;
   s.cur={ x0:s.x, top:s.y };                       // для отметки высоты
 }
 function press(s,w,f){
   s.presses.push(s.t);
+  s.hold=true; s.pressT=s.t;          // кнопка зажата — видно ВСЕГДА, даже если прыжка не будет
   if(s.gr || (f.coyote && s.coy>0)) jump(s);
   else if(f.djump && s.aj>0){ s.aj--; jump(s); }
   else if(f.wall && s.wall){ const d=s.wall; jump(s); s.vx=-d*24; s.wall=0; }
@@ -84,6 +85,7 @@ function step(s,w,f,dt){
   if(s.buf>0) s.buf=Math.max(0,s.buf-dt);
   if(s.cur) s.cur.top=Math.min(s.cur.top,s.y);
 
+  if(s.btnAuto && s.t>=s.btnAuto){ s.hold=false; s.btnAuto=0; }
   if(!s.gr && s.vy>0) s.fallT=(s.fallT||0)+dt;      // сколько падал
   if(!s.gr && Math.abs(s.vy)<20) s.apexT=(s.apexT||0)+dt; // сколько держался у пика
   if(s.y>V.H+4) s.dead=true;                        // упал в пропасть
@@ -135,12 +137,25 @@ function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
     c.strokeStyle='rgba(255,255,255,'+al.toFixed(3)+')'; c.lineWidth=1;
     c.strokeRect(X(t.x)+.5,Y(t.y)+.5,V.P*sc-1,V.P*sc-1);
   }
-  // куб (квадрат)
+  // куб (квадрат). Зажата кнопка -> залит белым, как в самой игре
   const cx=X(s.x), cy=Y(s.y), cs=V.P*sc;
-  c.shadowColor= s.dead?'rgba(255,92,92,.8)':'rgba(255,255,255,.85)'; c.shadowBlur=s.hold?14:7;
+  c.shadowColor= s.dead?'rgba(255,92,92,.8)':'rgba(255,255,255,.9)'; c.shadowBlur=s.hold?18:7;
   if(s.hold){ c.fillStyle='#fff'; c.fillRect(cx,cy,cs,cs); }
   else{ c.strokeStyle= s.dead?CSS.bad:'#fff'; c.lineWidth=2; c.strokeRect(cx+1,cy+1,cs-2,cs-2); }
   c.shadowBlur=0;
+  // вспышка ровно в момент нажатия
+  const age=s.t-s.pressT;
+  if(age>=0 && age<0.34){
+    const k=age/0.34, pad=cs*(0.15+0.55*k);
+    c.strokeStyle='rgba(61,255,158,'+(0.95*(1-k)).toFixed(3)+')'; c.lineWidth=2;
+    c.strokeRect(cx-pad, cy-pad, cs+pad*2, cs+pad*2);
+    if(k<0.75){
+      c.font='9px "Pixelify Sans",monospace'; c.textAlign='center'; c.textBaseline='bottom';
+      c.fillStyle='rgba(61,255,158,'+(1-k).toFixed(3)+')';
+      c.fillText('КЛИК', cx+cs/2, cy-pad-3);
+      c.textAlign='left'; c.textBaseline='top';
+    }
+  }
   // индикатор окна койота / буфера
   const bar=(val,max)=>{ c.fillStyle='rgba(61,255,158,.22)'; c.fillRect(cx,cy-8,cs,3);
                          c.fillStyle=CSS.acc; c.fillRect(cx,cy-8,cs*(val/max),3); };
@@ -226,7 +241,7 @@ const SCENES = {
 
   buffer:{ ab:1, flag:'buffer', labels:['БЕЗ МЕХАНИКИ','С МЕХАНИКОЙ'],
     world:{ plats:[[0,100,GY]], start:[16,TOP], vx:15, dur:3.2,
-      script:[[0.4,'p'],[0.55,'r'],[0.88,'p'],[1.05,'r']] },
+      script:[[0.4,'p'],[0.55,'r'],[0.88,'p'],[1.18,'r']] },
     hint:'Второе нажатие на 0.12 сек РАНЬШЕ приземления.' },
 
   hitbox:{ ab:1, flag:'hitbox', labels:['БЕЗ МЕХАНИКИ','С МЕХАНИКОЙ'],
@@ -256,8 +271,8 @@ const SCENES = {
   wall:{ ab:0, flag:'wall',
     world:{ plats:[[30,70,46]], blocks:[[16,30,0,50],[70,84,0,50]], start:[44,41], vx:0, dur:4.2,
       bot:(s,w,f,press)=>{ if(!s.botT) s.botT=0;
-        if(s.gr && s.t>0.35 && s.t-s.lastJump>0.4){ press(s,w,f); s.vx=22; }
-        else if(!s.gr && s.wall && s.t-s.lastJump>0.28) press(s,w,f); } },
+        if(s.gr && s.t>0.35 && s.t-s.lastJump>0.4){ press(s,w,f); s.btnAuto=s.t+0.2; s.vx=22; }
+        else if(!s.gr && s.wall && s.t-s.lastJump>0.28){ press(s,w,f); s.btnAuto=s.t+0.2; } } },
     hint:'Кубик сам отталкивается от стен и лезет вверх.' },
 
   camera:{ camera:1, hint:'Пока игрок внутри пунктирной рамки — камера стоит. Вышел — поехала.' }
@@ -288,17 +303,30 @@ addEventListener('resize',()=>sims.forEach(resizeSim));
 
 function verdictFor(sim,which){
   const s=which==='A'?sim.A:sim.B, k=sim.key, w=sim.sc.world;
-  if(s.t<w.dur*0.55) return null;
   const A=which==='A';
+  // не судим, пока исход не решён (куб ещё в воздухе)
+  const settled = s.dead || (s.gr && s.t>0.2);
   switch(k){
-    case 'coyote': return s.dead?{ok:0,text:'✗ ПРОВАЛ В ЯМУ'}:{ok:1,text:'✓ ПРЫЖОК ПРОШЁЛ'};
-    case 'hitbox': return s.dead?{ok:0,text:'✗ СОРВАЛСЯ У КРАЯ'}:{ok:1,text:'✓ КРАЙ ПРОСТИЛ'};
-    case 'djump':  return s.dead?{ok:0,text:'✗ НЕ ДОЛЕТЕЛ'}:{ok:1,text:'✓ ДОЛЕТЕЛ'};
-    case 'buffer': return s.fired>=2?{ok:1,text:'✓ ПРЫЖОК СРАБОТАЛ'}:{ok:0,text:'✗ НАЖАТИЕ ПОТЕРЯНО'};
-    case 'corner': return s.bonk?{ok:0,text:'✗ ЗАСТРЯЛ ПОД УГЛОМ'}:{ok:1,text:'✓ ПРОСКОЛЬЗНУЛ'};
-    case 'vary':   return A?{ok:0,text:'ВЫСОТА ВСЕГДА ОДНА'}:{ok:1,text:'ВЫСОТА ЗАВИСИТ ОТ НАЖАТИЯ'};
-    case 'fastfall': return {ok:!A,text:'ПАДАЛ '+(s.fallT||0).toFixed(2)+' сек'};
-    case 'apex':     return {ok:!A,text:'НА ПИКЕ '+(s.apexT||0).toFixed(2)+' сек'};
+    case 'coyote': case 'hitbox': case 'djump':
+      if(s.dead) return {ok:0,text: k==='coyote'?'✗ ПРОВАЛ В ЯМУ': k==='hitbox'?'✗ СОРВАЛСЯ У КРАЯ':'✗ НЕ ДОЛЕТЕЛ'};
+      if(!s.gr || s.fired===0) return null;
+      return {ok:1,text: k==='coyote'?'✓ ПРЫЖОК ПРОШЁЛ': k==='hitbox'?'✓ КРАЙ ПРОСТИЛ':'✓ ДОЛЕТЕЛ'};
+    case 'buffer':
+      if(s.presses.length<2 || !settled) return null;
+      return s.fired>=2?{ok:1,text:'✓ ПРЫЖОК СРАБОТАЛ'}:{ok:0,text:'✗ НАЖАТИЕ ПОТЕРЯНО'};
+    case 'corner':
+      if(s.fired===0) return null;
+      if(s.bonk) return {ok:0,text:'✗ ЗАСТРЯЛ ПОД УГЛОМ'};
+      return s.t>w.dur*0.6?{ok:1,text:'✓ ПРОСКОЛЬЗНУЛ'}:null;
+    case 'vary':
+      if(s.arcs.length<2) return null;
+      return A?{ok:0,text:'ВЫСОТА ВСЕГДА ОДНА'}:{ok:1,text:'ВЫСОТА ЗАВИСИТ ОТ НАЖАТИЯ'};
+    case 'fastfall':
+      if(!settled || !(s.fallT>0)) return null;
+      return {ok:!A,text:'ПАДАЛ '+s.fallT.toFixed(2)+' сек'};
+    case 'apex':
+      if(!settled || !(s.apexT>0)) return null;
+      return {ok:!A,text:'НА ПИКЕ '+s.apexT.toFixed(2)+' сек'};
   }
   return null;
 }
