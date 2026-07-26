@@ -45,14 +45,23 @@ function step(s,w,f,dt){
   if(!s.gr) s.vy += g*dt;
 
   /* --- горизонталь + стены --- */
-  s.x += s.vx*dt; s.wall=0;
+  s.x += s.vx*dt;
   for(const b of (w.blocks||[])){
     if(hit(s.x,s.y,V.P,V.P,b[0],b[2],b[1]-b[0],b[3]-b[2])){
-      if(s.vx>0){ s.x=b[0]-V.P; s.wall=1; } else if(s.vx<0){ s.x=b[1]; s.wall=-1; }
+      if(s.vx>0) s.x=b[0]-V.P; else if(s.vx<0) s.x=b[1];
       s.vx=0;
     }
   }
-  if(f.wall && !s.gr && s.wall && s.vy>8) s.vy=8;  // сползание по стене
+  // контакт со стеной: проба сбоку — держится и когда скорость уже нулевая
+  const prevWall=s.wall; s.wall=0;
+  for(const b of (w.blocks||[])){
+    const vo=(s.y+V.P>b[2]+0.3)&&(s.y<b[3]-0.3);
+    if(!vo) continue;
+    if(Math.abs(s.x-b[1])<0.7) s.wall=-1;             // стена слева
+    if(Math.abs((s.x+V.P)-b[0])<0.7) s.wall=1;        // стена справа
+  }
+  if(s.wall && !prevWall) s.wallTouch=s.t;          // момент зацепа
+  if(f.wall && !s.gr && s.wall && s.vy>6) s.vy=6;    // цепляется и медленно сползает
 
   /* --- вертикаль --- */
   const prevBot=s.y+V.P;
@@ -61,7 +70,7 @@ function step(s,w,f,dt){
 
   if(s.vy<0){                                       // удар головой о потолок
     for(const b of (w.blocks||[])){
-      if(hit(s.x,s.y,V.P,V.P,b[0],b[2],b[1]-b[0],b[3]-b[2])){
+      if(hit(s.x,s.y,V.P,V.P,b[0],b[2],b[1]-b[0],b[3]-b[2]) && s.y>b[2] && s.y<b[3]){
         const ovR=(s.x+V.P)-b[0], ovL=b[1]-s.x;     // насколько зашли углом
         if(f.corner && ovR>0 && ovR<2.7){ s.x-=ovR+0.15; s.cornerFix=s.t; }      // подтолкнули мимо
         else if(f.corner && ovL>0 && ovL<2.7){ s.x+=ovL+0.15; s.cornerFix=s.t; }
@@ -88,7 +97,7 @@ function step(s,w,f,dt){
   if(s.btnAuto && s.t>=s.btnAuto){ s.hold=false; s.btnAuto=0; }
   if(!s.gr && s.vy>0) s.fallT=(s.fallT||0)+dt;      // сколько падал
   if(!s.gr && Math.abs(s.vy)<20) s.apexT=(s.apexT||0)+dt; // сколько держался у пика
-  if(s.y>V.H+4) s.dead=true;                        // упал в пропасть
+  if(s.y > (w.deathY!==undefined ? w.deathY : V.H+4)) s.dead=true;   // упал в пропасть
 
   s.trail.push({x:s.x,y:s.y,h:s.hold});
   if(s.trail.length>26) s.trail.shift();
@@ -102,8 +111,8 @@ const CSS={ line:'#ffffff', dim:'rgba(255,255,255,.16)', acc:'#3dff9e', bad:'#ff
 function viewOf(pw,ph){ const sc=ph/V.H; return {sc, visW:pw/sc}; }
 
 function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
-  const sc=opt.sc, cam=opt.cam;
-  const X=v=>px+(v-cam)*sc, Y=v=>py+v*sc;
+  const sc=opt.sc, cam=opt.cam, camY=opt.camY||0;
+  const X=v=>px+(v-cam)*sc, Y=v=>py+(v-camY)*sc;
 
   c.save(); c.beginPath(); c.rect(px,py,pw,ph); c.clip();
 
@@ -111,6 +120,17 @@ function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
     c.fillStyle='rgba(255,255,255,.05)'; c.fillRect(X(b[0]),Y(b[2]),(b[1]-b[0])*sc,(b[3]-b[2])*sc);
     c.strokeStyle=CSS.line; c.lineWidth=1.5; c.beginPath();
     c.moveTo(X(b[0]),Y(b[3])); c.lineTo(X(b[1]),Y(b[3])); c.stroke();
+  }
+  // насечки на стенах — по ним видно, что куб реально поднимается
+  if(w.wallTicks){
+    c.strokeStyle='rgba(255,255,255,.32)'; c.lineWidth=1.4;
+    const y0=Math.floor((camY-14)/13)*13;
+    for(let yy=y0; yy<camY+V.H+14; yy+=13){
+      for(const b of (w.blocks||[])){
+        const left=b[1]<50, inner=left?b[1]:b[0], dir=left?-1:1;
+        c.beginPath(); c.moveTo(X(inner),Y(yy)); c.lineTo(X(inner+dir*6),Y(yy)); c.stroke();
+      }
+    }
   }
   for(const p of (w.plats||[])){
     c.fillStyle='rgba(255,255,255,.035)'; c.fillRect(X(p[0]),Y(p[2]),(p[1]-p[0])*sc,ph);
@@ -154,6 +174,12 @@ function drawPane(c, px, py, pw, ph, w, s, f, label, opt){
   if(s.hold){ c.fillStyle='#fff'; c.fillRect(cx,cy,cs,cs); }
   else{ c.strokeStyle= s.dead?CSS.bad:'#fff'; c.lineWidth=2; c.strokeRect(cx+1,cy+1,cs-2,cs-2); }
   c.shadowBlur=0;
+  // куб цепляется за стену — подсвечиваем сторону контакта
+  if(f.wall && s.wall && !s.gr){
+    c.strokeStyle=CSS.acc; c.lineWidth=3; c.shadowColor=CSS.acc; c.shadowBlur=8;
+    const gx = s.wall<0 ? cx : cx+cs;
+    c.beginPath(); c.moveTo(gx, cy+2); c.lineTo(gx, cy+cs-2); c.stroke(); c.shadowBlur=0;
+  }
   // вспышка ровно в момент нажатия
   const age=s.t-s.pressT;
   if(age>=0 && age<0.34){
@@ -284,11 +310,16 @@ const SCENES = {
     hint:'Угол задет всего на пару пикселей.' },
 
   wall:{ ab:0, flag:'wall',
-    world:{ plats:[[30,70,46]], blocks:[[16,30,0,50],[70,84,0,50]], start:[44,41], vx:0, dur:4.2,
-      bot:(s,w,f,press)=>{ if(!s.botT) s.botT=0;
-        if(s.gr && s.t>0.35 && s.t-s.lastJump>0.4){ press(s,w,f); s.btnAuto=s.t+0.2; s.vx=22; }
-        else if(!s.gr && s.wall && s.t-s.lastJump>0.28){ press(s,w,f); s.btnAuto=s.t+0.2; } } },
-    hint:'Кубик сам отталкивается от стен и лезет вверх.' },
+    world:{ plats:[[28,45,104]], blocks:[[0,28,-140,110],[45,100,-140,110]],
+      start:[34,99], vx:0, dur:7.5, sceneW:100, followY:1, deathY:130, wallTicks:1,
+      bot:(s,w,f,press)=>{
+        // с земли — прыжок к стене; дальше висит на стене и отталкивается на другую
+        if(s.gr && s.t>0.5 && s.t-s.lastJump>0.4){ press(s,w,f); s.btnAuto=s.t+0.18; s.vx=16; }
+        else if(!s.gr && s.wall && s.t-(s.wallTouch||0)>0.3 && s.t-s.lastJump>0.25){
+          press(s,w,f); s.btnAuto=s.t+0.18;
+        }
+      } },
+    hint:'Куб цепляется за стену, сползает и отталкивается — и так с одной стены на другую, всё выше.' },
 
   camlerp:{ camera:1, look:0, hint:'Пока игрок внутри пунктирной рамки — камера стоит на месте. Вышел — плавно догоняет.' },
 
@@ -379,7 +410,7 @@ function frame(now){
     }
     if(sim.A.t>=w.dur && sim.B.t>=w.dur){
       sim.hold+=dt;
-      if(sim.hold>1.3){ sim.hold=0; sim.A=newState(w); sim.B=newState(w); sim.iA=0; sim.iB=0; sim.camX=undefined; }
+      if(sim.hold>1.3){ sim.hold=0; sim.A=newState(w); sim.B=newState(w); sim.iA=0; sim.iB=0; sim.camX=undefined; sim.camY=undefined; }
     }
 
     // общая камера для обеих панелей: следит за действием, куб всегда квадратный
@@ -391,7 +422,19 @@ function frame(now){
     want = vw.visW>=sceneW ? (sceneW-vw.visW)/2 : Math.max(0, Math.min(sceneW-vw.visW, want));
     if(sim.camX===undefined) sim.camX=want;
     sim.camX += (want-sim.camX)*Math.min(1, 6*dt);
-    const opt={sc:vw.sc, cam:sim.camX};
+
+    // вертикальная камера — для сцен, где лезут вверх (прыжок от стены)
+    let camY=0;
+    if(w.followY){
+      const visH=sim.h/vw.sc;
+      let wantY = sim.B.y + V.P/2 - visH*0.55;
+      const floorY = (w.plats&&w.plats[0]) ? w.plats[0][2] : V.H;
+      wantY = Math.min(wantY, floorY + 6 - visH);
+      if(sim.camY===undefined) sim.camY=wantY;
+      sim.camY += (wantY-sim.camY)*Math.min(1, 4*dt);
+      camY = sim.camY;
+    }
+    const opt={sc:vw.sc, cam:sim.camX, camY:camY};
 
     if(sim.sc.ab){
       drawPane(c,0,0,paneW,sim.h,w,sim.A,sim.fA,sim.sc.labels[0],Object.assign({on:0,verdict:verdictFor(sim,'A')},opt));
@@ -405,5 +448,5 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 
-global.GFSim={ mount, SCENES };
+global.GFSim={ mount, SCENES, sims };
 })(window);

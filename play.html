@@ -219,7 +219,7 @@
   const params = {
     jumpMaxHold:0.28, jumpPhysics:false, coyoteTime:0.12, bufferTime:0.15, hitboxForgive:0.6,
     fallMul:1.9, apexGrav:0.45, fallCap:34, airJumps:1, cornerFix:0.5, accelK:8.5, skidBoost:1.0,
-    wallSlide:8, shakeAmt:1.0, attackR:2.0, hitstop:0.08, lookAhead:0.18, camSmooth:5, camDeadzone:0.14
+    wallSlide:8, wallGap:5, shakeAmt:1.0, attackR:2.0, hitstop:0.08, lookAhead:0.18, camSmooth:5, camDeadzone:0.14
   };
   const PDEF = {
     jumpMaxHold:{label:'УДЕРЖАНИЕ ПРЫЖКА',min:0.06,max:0.5,step:0.01},
@@ -234,6 +234,7 @@
     accelK:{label:'РАЗГОН',min:3,max:20,step:0.5},
     skidBoost:{label:'СИЛА ЗАНОСА',min:0,max:2.5,step:0.1},
     wallSlide:{label:'СПОЛЗАНИЕ ПО СТЕНЕ',min:2,max:22,step:1},
+    wallGap:{label:'РАССТОЯНИЕ МЕЖДУ СТЕНАМИ',min:2.5,max:18,step:0.5},
     shakeAmt:{label:'СИЛА ТРЯСКИ',min:0,max:2.5,step:0.1},
     attackR:{label:'РАДИУС УДАРА',min:1,max:4,step:0.1},
     hitstop:{label:'ЗАМОРОЗКА УДАРА',min:0,max:0.25,step:0.01},
@@ -276,7 +277,7 @@
   const MODE_PARAMS = {
     vary:['jumpMaxHold','physics'], coyote:['coyoteTime'], buffer:['bufferTime'], hitbox:['hitboxForgive'],
     fastfall:['fallMul'], apex:['apexGrav'], fallcap:['fallCap'], djump:['airJumps'], corner:['cornerFix'],
-    accel:['accelK'], ledge:[], wall:['wallSlide'], slope:[], squash:[], dust:[],
+    accel:['accelK'], ledge:[], wall:['wallSlide','wallGap'], slope:[], squash:[], dust:[],
     combat:['attackR','hitstop'], camlook:['lookAhead','camDeadzone','camSmooth'], camlerp:['camDeadzone','camSmooth'],
     all:['jumpMaxHold','physics','coyoteTime','bufferTime','hitboxForgive']
   };
@@ -335,7 +336,10 @@
     } else if(m.wall){
       worldH=Math.round(H*2.2); bottomY=worldH+tile*10; camFollowY=true;
       const fy=Math.round(worldH*0.86); groundY=fy; flat(0,W,fy);
-      const lw=Math.round(W*0.42), rw=Math.round(W*0.58);
+      // ширина шахты настраивается: узкая — прыгаешь со стены на стену,
+      // широкая — забираешься по одной стене, подруливая к ней в воздухе
+      const gap=clamp(tile*params.wallGap, tile*2.2, W*0.86);
+      const lw=Math.round((W-gap)/2), rw=Math.round(lw+gap);
       solids.push({x:0,y:0,w:lw,h:fy});
       solids.push({x:rw,y:0,w:W-rw,h:fy});
       sx=Math.round((lw+rw)/2-cube.size/2); sy=fy-cube.size;
@@ -421,7 +425,9 @@
       }
     } else {
       for(const s of solids){
-        if(overlap(c.x,c.y,c.size,c.size,s.x,s.y,s.w,s.h)){
+        // важно: реагируем только если ВЕРХ куба зашёл внутрь блока (удар головой),
+        // иначе стоящий на полу куб при малейшем движении вверх телепортировался под пол
+        if(overlap(c.x,c.y,c.size,c.size,s.x,s.y,s.w,s.h) && c.y>s.y && c.y<s.y+s.h){
           // corner correction: small horizontal overlap near an edge -> nudge past
           if(M().corner){
             const cfx=params.cornerFix*tile;
@@ -808,7 +814,9 @@
   /* ================= loop ================= */
   let gameState='menu', last=performance.now();
   function loop(now){
-    let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
+    let dt=(now-last)/1000; last=now;
+    if(!(dt>0)) dt=0;           // первый кадр rAF может дать отрицательный dt
+    if(dt>0.05) dt=0.05;
     if(gameState==='playing') update(dt);
     draw(); present();
     requestAnimationFrame(loop);
@@ -897,7 +905,8 @@
     for(const key of list){
       if(key==='physics'){ const b=document.getElementById('t_physics'); b.onclick=()=>{ params.jumpPhysics=!params.jumpPhysics; renderSettings(); }; continue; }
       const s=document.getElementById('s_'+key), vv=document.getElementById('v_'+key);
-      s.oninput=()=>{ params[key]=parseFloat(s.value); vv.textContent=fmt(params[key],PDEF[key]); };
+      s.oninput=()=>{ params[key]=parseFloat(s.value); vv.textContent=fmt(params[key],PDEF[key]);
+        if(key==='wallGap') buildLevel(true); };   // геометрия — перестраиваем уровень
     }
   }
 
